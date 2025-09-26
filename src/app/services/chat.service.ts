@@ -1,100 +1,143 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, push, onValue, off } from 'firebase/database';
+import { createClient } from '@supabase/supabase-js';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ChatService {
-  private db: any;
+  private supabase: any;
   private messagesSubject = new BehaviorSubject<any[]>([]);
   private currentRoom = '';
-  private messagesRef: any;
   
   messages$ = this.messagesSubject.asObservable();
 
   constructor() {
-    // Firebase config (público para demo)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDvniOl6_WzJ2BZzP0QO_PXjg9EI5HUaRU",
-      authDomain: "meeting-portal-demo.firebaseapp.com",
-      databaseURL: "https://meeting-portal-demo-default-rtdb.firebaseio.com",
-      projectId: "meeting-portal-demo",
-      storageBucket: "meeting-portal-demo.appspot.com",
-      messagingSenderId: "987654321",
-      appId: "1:987654321:web:demo123456789"
-    };
+    // Inicialização lazy para evitar conflitos
+  }
 
-    try {
-      const app = initializeApp(firebaseConfig);
-      this.db = getDatabase(app);
-      console.log('🔥 Firebase initialized successfully');
-    } catch (error) {
-      console.error('❌ Firebase initialization error:', error);
-    }
+  private initSupabase() {
+    if (this.supabase) return;
+    
+    const supabaseUrl = 'https://ybsojwpcokgwmlkpfhjb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlic29qd3Bjb2tnd21sa3BmaGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzE4MzMsImV4cCI6MjA3NDQ0NzgzM30.S2Y09IDUTME-e_0QEVF4QrSob5vwIHIYmtB41MDQ-OE';
+    
+    this.supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      }
+    });
+    console.log('✅ Supabase initialized');
   }
 
   initializeChat(token: string) {
-    console.log('✅ Firebase chat initialized');
+    console.log('✅ Chat ready');
   }
 
-  joinRoom(roomName: string, userName: string) {
+  async joinRoom(roomName: string, userName: string) {
+    this.initSupabase();
     this.currentRoom = roomName;
-    this.messagesRef = ref(this.db, `chats/${roomName}`);
     
-    console.log(`🔄 Joining room: ${roomName}`);
-    console.log(`🔄 Database ref:`, this.messagesRef);
+    // Load existing messages
+    await this.loadMessages(roomName);
     
-    // Listen for messages
-    onValue(this.messagesRef, (snapshot) => {
-      console.log('💬 Firebase snapshot received:', snapshot.val());
-      const data = snapshot.val();
-      if (data) {
-        const messages = Object.values(data).sort((a: any, b: any) => a.timestamp - b.timestamp);
-        console.log('💬 Processed messages:', messages);
-        this.messagesSubject.next(messages as any[]);
+    // Listen for new messages in real-time
+    this.supabase
+      .channel(`chat_${roomName}`)
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload: any) => {
+          console.log('📨 New message received:', payload.new);
+          if (payload.new.room === roomName) {
+            // Convert username back to user for display
+            const messageForDisplay = {
+              ...payload.new,
+              user: payload.new.username
+            };
+            const currentMessages = this.messagesSubject.value;
+            this.messagesSubject.next([...currentMessages, messageForDisplay]);
+          }
+        }
+      )
+      .subscribe();
+    
+    console.log(`✅ Joined Supabase room: ${roomName}`);
+  }
+
+  async sendMessage(roomName: string, message: any) {
+    const messageData = {
+      room: roomName,
+      username: message.user,
+      text: message.text,
+      time: message.time,
+      timestamp: Date.now(),
+      created_at: new Date().toISOString()
+    };
+    
+    console.log('💬 Sending message:', messageData);
+    
+    // Add to local immediately
+    const currentMessages = this.messagesSubject.value;
+    this.messagesSubject.next([...currentMessages, messageData]);
+    
+    // Send to Supabase (will trigger real-time for others)
+    try {
+      const { error } = await this.supabase
+        .from('messages')
+        .insert([messageData]);
+      
+      if (error) {
+        console.error('❌ Supabase error:', error);
       } else {
-        console.log('💬 No messages in room');
-        this.messagesSubject.next([]);
+        console.log('✅ Message sent to Supabase');
       }
-    }, (error) => {
-      console.error('❌ Firebase onValue error:', error);
-    });
-    
-    console.log(`✅ Joined Firebase chat room: ${roomName}`);
-  }
-
-  sendMessage(roomName: string, message: any) {
-    if (this.messagesRef) {
-      const messageData = {
-        ...message,
-        timestamp: Date.now()
-      };
-      
-      console.log('💬 Sending message:', messageData);
-      
-      push(this.messagesRef, messageData)
-        .then(() => {
-          console.log('✅ Message sent to Firebase successfully');
-        })
-        .catch((error) => {
-          console.error('❌ Error sending message:', error);
-        });
-    } else {
-      console.error('❌ No messages ref available');
+    } catch (error) {
+      console.error('❌ Network error:', error);
     }
   }
 
-  leaveRoom(roomName: string, userName: string) {
-    if (this.messagesRef) {
-      off(this.messagesRef);
-      this.messagesRef = null;
-    }
+  async leaveRoom(roomName: string, userName: string) {
+    // Unsubscribe from real-time
+    this.supabase.removeAllChannels();
     
     this.messagesSubject.next([]);
     this.currentRoom = '';
     
-    console.log(`✅ Left Firebase chat room: ${roomName}`);
+    console.log(`✅ Left Supabase room: ${roomName}`);
+  }
+
+  private async loadMessages(roomName: string) {
+    try {
+      const { data, error } = await this.supabase
+        .from('messages')
+        .select('*')
+        .eq('room', roomName)
+        .order('timestamp', { ascending: true });
+      
+      if (error) {
+        console.error('❌ Error loading messages:', error);
+        // Fallback to empty array
+        this.messagesSubject.next([]);
+      } else {
+        // Convert username to user for display
+        const messagesForDisplay = (data || []).map((msg: any) => ({
+          ...msg,
+          user: msg.username
+        }));
+        console.log('📨 Loaded messages:', messagesForDisplay);
+        this.messagesSubject.next(messagesForDisplay);
+      }
+    } catch (error) {
+      console.error('❌ Network error loading messages:', error);
+      // Fallback to empty array
+      this.messagesSubject.next([]);
+    }
   }
 }
