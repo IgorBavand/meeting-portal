@@ -85,8 +85,8 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       console.log('Conectado com sucesso');
       
       // Initialize and join chat room
-      this.chatService.initializeChat(token.trim());
-      this.chatService.joinRoom(this.roomName, this.identity);
+      await this.chatService.initializeChat(token.trim());
+      await this.chatService.joinRoom(this.roomName, this.identity);
       
       // Anexar tracks locais
       setTimeout(() => {
@@ -119,7 +119,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
 
     if (result.isConfirmed) {
       this.twilioService.leaveRoom();
-      this.chatService.leaveRoom(this.roomName, this.identity);
+      await this.chatService.leaveRoom(this.roomName, this.identity);
       this.isConnected = false;
       this.participants = [];
       this.messages = [];
@@ -134,7 +134,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     this.showChat = !this.showChat;
   }
 
-  sendMessage() {
+  async sendMessage() {
     if (!this.newMessage.trim()) return;
     
     const message = {
@@ -144,7 +144,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     };
     
     // Send to chat service (will sync with other participants)
-    this.chatService.sendMessage(this.roomName, message);
+    await this.chatService.sendMessage(this.roomName, message);
     
     this.newMessage = '';
   }
