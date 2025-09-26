@@ -1,13 +1,5 @@
 {
-  "functions": {
-    "chat-server.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/socket.io/(.*)",
-      "destination": "/api/chat-server"
-    }
-  ]
+  "buildCommand": "ng build",
+  "outputDirectory": "dist/meeting-portal",
+  "framework": "angular"
 }
