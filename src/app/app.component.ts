@@ -9,5 +9,5 @@ import { VideoCallComponent } from './components/video-call.component';
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-  title = 'meeting-portal';
+  title = 'meeting portal';
 }

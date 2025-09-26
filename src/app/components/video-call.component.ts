@@ -19,6 +19,8 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   roomName = '';
   isConnected = false;
   participants: RemoteParticipant[] = [];
+  isMuted = false;
+  isVideoOff = false;
   
   predefinedRooms = ['Sala Geral', 'Reunião', 'Trabalho', 'Família', 'Amigos'];
   
@@ -84,13 +86,47 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   }
 
   leaveCall() {
-    this.twilioService.leaveRoom();
-    this.isConnected = false;
-    this.participants = [];
+    if (confirm('Tem certeza que deseja sair da chamada?')) {
+      this.twilioService.leaveRoom();
+      this.isConnected = false;
+      this.participants = [];
+    }
   }
   
   selectRoom(room: string) {
     this.roomName = room;
+  }
+
+  toggleMute() {
+    const room = this.twilioService.getCurrentRoom();
+    if (!room) return;
+
+    room.localParticipant.audioTracks.forEach(track => {
+      if (this.isMuted) {
+        track.track?.enable();
+      } else {
+        track.track?.disable();
+      }
+    });
+    this.isMuted = !this.isMuted;
+  }
+
+  toggleVideo() {
+    const room = this.twilioService.getCurrentRoom();
+    if (!room) return;
+
+    room.localParticipant.videoTracks.forEach(track => {
+      if (this.isVideoOff) {
+        track.track?.enable();
+      } else {
+        track.track?.disable();
+      }
+    });
+    this.isVideoOff = !this.isVideoOff;
+  }
+
+  trackParticipant(index: number, participant: RemoteParticipant): string {
+    return participant.sid;
   }
 
   private attachParticipantTracks() {

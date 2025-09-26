@@ -1,29 +1,93 @@
-<div class="video-call-container">
-  <div class="controls">
-    <input [(ngModel)]="identity" placeholder="Seu nome" />
-    <div class="room-selection">
-      <input [(ngModel)]="roomName" placeholder="Nome da sala" />
-      <div class="predefined-rooms">
-        <button *ngFor="let room of predefinedRooms" 
-                (click)="selectRoom(room)" 
-                [class.selected]="roomName === room">{{room}}</button>
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/>
+        </svg>
+        <span>Meeting Portal</span>
+      </div>
+      <div class="room-info" *ngIf="isConnected">
+        <span class="room">{{roomName}}</span>
+        <span class="count">{{participants.length + 1}} pessoas</span>
       </div>
     </div>
-    <button (click)="joinCall()" [disabled]="isConnected">Entrar na Chamada</button>
-    <button (click)="leaveCall()" [disabled]="!isConnected">Sair da Chamada</button>
-  </div>
-  
-  <div class="video-grid" *ngIf="isConnected">
-    <div class="local-video">
-      <video #localVideo autoplay muted playsinline></video>
-      <span>Você</span>
-    </div>
-    
-    <div class="remote-videos">
-      <div *ngFor="let participant of participants" class="remote-video">
-        <div [id]="'remote-' + participant.sid"></div>
-        <span>{{participant.identity}}</span>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Join Form -->
+    <div class="join" *ngIf="!isConnected">
+      <div class="join-card">
+        <h1>Entrar na reunião</h1>
+        
+        <div class="field">
+          <label>Nome</label>
+          <input [(ngModel)]="identity" placeholder="Digite seu nome" required>
+        </div>
+        
+        <div class="field">
+          <label>Sala</label>
+          <input [(ngModel)]="roomName" placeholder="Nome da sala" required>
+        </div>
+        
+        <div class="rooms">
+          <label>Salas rápidas:</label>
+          <div class="room-grid">
+            <button *ngFor="let room of predefinedRooms" 
+                    (click)="selectRoom(room)"
+                    [class.active]="roomName === room">
+              {{room}}
+            </button>
+          </div>
+        </div>
+        
+        <button class="join-btn" (click)="joinCall()" [disabled]="!identity || !roomName">
+          Entrar na reunião
+        </button>
       </div>
     </div>
-  </div>
+
+    <!-- Video Call -->
+    <div class="call" *ngIf="isConnected">
+      <div class="videos">
+        <!-- Local Video -->
+        <div class="video">
+          <video #localVideo autoplay muted playsinline [hidden]="isVideoOff"></video>
+          <div class="avatar" *ngIf="isVideoOff">
+            {{identity.charAt(0).toUpperCase()}}
+          </div>
+          <div class="info">
+            <span>Você</span>
+            <div class="status">
+              <i [class]="isMuted ? 'muted' : 'mic'"></i>
+              <i [class]="isVideoOff ? 'video-off' : 'video'"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Remote Videos -->
+        <div class="video" *ngFor="let participant of participants; trackBy: trackParticipant">
+          <div [id]="'remote-' + participant.sid" class="remote"></div>
+          <div class="info">
+            <span>{{participant.identity}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button (click)="toggleMute()" [class.active]="isMuted" [title]="isMuted ? 'Ativar microfone' : 'Silenciar'">
+          <i [class]="isMuted ? 'muted' : 'mic'"></i>
+        </button>
+        <button (click)="toggleVideo()" [class.active]="isVideoOff" [title]="isVideoOff ? 'Ligar câmera' : 'Desligar câmera'">
+          <i [class]="isVideoOff ? 'video-off' : 'video'"></i>
+        </button>
+        <button class="end" (click)="leaveCall()" title="Encerrar chamada">
+          <i class="phone"></i>
+        </button>
+      </div>
+    </div>
+  </main>
 </div>

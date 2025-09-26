@@ -1,75 +1,495 @@
-.video-call-container {
-  padding: 20px;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.controls {
-  margin-bottom: 20px;
-}
-
-.controls input, .controls button {
-  margin: 5px;
-  padding: 8px;
-}
-
-.room-selection {
-  margin: 10px 0;
-}
-
-.predefined-rooms {
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: flex;
-  gap: 5px;
-  margin-top: 5px;
-  flex-wrap: wrap;
+  flex-direction: column;
 }
 
-.predefined-rooms button {
-  padding: 5px 10px;
-  border: 1px solid #ccc;
-  background: #f5f5f5;
-  border-radius: 4px;
-  cursor: pointer;
+// Header
+.header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 1rem 0;
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: #1e293b;
+    
+    svg {
+      color: #667eea;
+    }
+  }
+  
+  .room-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    
+    .room {
+      font-weight: 600;
+      color: #1e293b;
+      background: rgba(102, 126, 234, 0.1);
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+    }
+    
+    .count {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+  }
 }
 
-.predefined-rooms button:hover {
-  background: #e0e0e0;
+// Main
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.predefined-rooms button.selected {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
-}
-
-.video-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 10px;
-}
-
-.local-video, .remote-video {
-  position: relative;
-  background: #000;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.local-video video {
+// Join Form
+.join {
+  padding: 2rem;
   width: 100%;
-  height: 200px;
-  object-fit: cover;
+  max-width: 450px;
+  
+  .join-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 2.5rem;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 2rem;
+      text-align: center;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .field {
+      margin-bottom: 1.5rem;
+      
+      label {
+        display: block;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+      }
+      
+      input {
+        width: 100%;
+        padding: 1rem 1.25rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+        
+        &:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        &::placeholder {
+          color: #9ca3af;
+        }
+      }
+    }
+    
+    .rooms {
+      margin-bottom: 2rem;
+      
+      label {
+        display: block;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+      }
+      
+      .room-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        
+        button {
+          padding: 0.875rem 1rem;
+          border: 2px solid #e5e7eb;
+          background: white;
+          border-radius: 12px;
+          font-size: 0.9rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          color: #374151;
+          
+          &:hover {
+            border-color: #667eea;
+            color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+          }
+          
+          &.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+          }
+        }
+      }
+    }
+    
+    .join-btn {
+      width: 100%;
+      padding: 1.25rem 2rem;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+      }
+      
+      &:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        transform: none;
+      }
+    }
+  }
 }
 
-.remote-video > div {
-  width: 100%;
-  height: 200px;
+// Video Call
+.call {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  gap: 1.5rem;
+  
+  .videos {
+    flex: 1;
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    
+    .video {
+      position: relative;
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      
+      video, .remote {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .avatar {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100px;
+        height: 100px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: white;
+        border: 4px solid rgba(255, 255, 255, 0.2);
+      }
+      
+      .info {
+        position: absolute;
+        bottom: 1rem;
+        left: 1rem;
+        right: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        
+        span {
+          background: rgba(0, 0, 0, 0.8);
+          backdrop-filter: blur(10px);
+          color: white;
+          padding: 0.75rem 1.25rem;
+          border-radius: 25px;
+          font-size: 0.9rem;
+          font-weight: 600;
+        }
+        
+        .status {
+          display: flex;
+          gap: 0.5rem;
+          
+          i {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            
+            &.muted, &.video-off {
+              background: #ef4444;
+            }
+            
+            &::before {
+              color: white;
+              font-size: 16px;
+            }
+            
+            &.mic::before { content: '🎤'; }
+            &.muted::before { content: '🔇'; }
+            &.video::before { content: '📹'; }
+            &.video-off::before { content: '📷'; }
+          }
+        }
+      }
+    }
+  }
+  
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border-radius: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    
+    button {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      
+      &:hover {
+        transform: scale(1.1);
+        background: rgba(255, 255, 255, 0.3);
+      }
+      
+      &.active {
+        background: #ef4444;
+        
+        &:hover {
+          background: #dc2626;
+        }
+      }
+      
+      &.end {
+        background: #ef4444;
+        
+        &:hover {
+          background: #dc2626;
+          transform: scale(1.1);
+        }
+      }
+      
+      i::before {
+        font-size: 22px;
+      }
+      
+      .mic::before { content: '🎤'; }
+      .muted::before { content: '🔇'; }
+      .video::before { content: '📹'; }
+      .video-off::before { content: '📷'; }
+      .phone::before { content: '📞'; }
+    }
+  }
 }
 
-.local-video span, .remote-video span {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  color: white;
-  background: rgba(0,0,0,0.5);
-  padding: 4px 8px;
-  border-radius: 4px;
+// Responsive
+@media (max-width: 768px) {
+  .header {
+    .container {
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+    }
+    
+    .logo {
+      font-size: 1.25rem;
+    }
+  }
+  
+  .join {
+    padding: 1rem;
+    
+    .join-card {
+      padding: 2rem;
+      
+      h1 {
+        font-size: 1.75rem;
+      }
+      
+      .rooms .room-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+  
+  .call {
+    padding: 1rem;
+    gap: 1rem;
+    
+    .videos {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      
+      .video {
+        min-height: 250px;
+        
+        .avatar {
+          width: 80px;
+          height: 80px;
+          font-size: 2rem;
+        }
+      }
+    }
+    
+    .controls {
+      gap: 1rem;
+      padding: 1rem;
+      
+      button {
+        width: 56px;
+        height: 56px;
+        
+        i::before {
+          font-size: 18px;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .join {
+    .join-card {
+      padding: 1.5rem;
+      
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      
+      .field {
+        margin-bottom: 1.25rem;
+        
+        input {
+          padding: 0.875rem 1rem;
+        }
+      }
+      
+      .rooms {
+        margin-bottom: 1.5rem;
+        
+        .room-grid button {
+          padding: 0.75rem;
+          font-size: 0.85rem;
+        }
+      }
+    }
+  }
+  
+  .call {
+    padding: 0.75rem;
+    
+    .videos .video {
+      min-height: 200px;
+      
+      .info {
+        bottom: 0.75rem;
+        left: 0.75rem;
+        right: 0.75rem;
+        
+        span {
+          padding: 0.5rem 1rem;
+          font-size: 0.8rem;
+        }
+        
+        .status i {
+          width: 32px;
+          height: 32px;
+          
+          &::before {
+            font-size: 14px;
+          }
+        }
+      }
+    }
+    
+    .controls {
+      gap: 0.75rem;
+      padding: 0.75rem;
+      
+      button {
+        width: 52px;
+        height: 52px;
+        
+        i::before {
+          font-size: 16px;
+        }
+      }
+    }
+  }
 }
