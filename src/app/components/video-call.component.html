@@ -144,7 +144,7 @@
           <h3>Chat</h3>
           <button (click)="toggleChat()">×</button>
         </div>
-        <div class="chat-messages">
+        <div class="chat-messages" #chatMessages>
           <div *ngFor="let msg of messages" class="message">
             <div class="message-header">
               <span class="user">{{msg.user}}</span>

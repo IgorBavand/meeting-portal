@@ -400,15 +400,17 @@
     flex: 1;
     padding: 1rem;
     overflow-y: auto;
+    max-height: calc(100vh - 200px);
     
     .message {
       margin-bottom: 1rem;
+      animation: fadeIn 0.3s ease;
       
       .message-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.5rem;
         
         .user {
           font-weight: 600;
@@ -423,14 +425,29 @@
       }
       
       .message-text {
-        background: rgba(102, 126, 234, 0.1);
-        padding: 0.75rem;
+        background: rgba(102, 126, 234, 0.15);
+        padding: 1rem;
         border-radius: 12px;
         color: #1e293b;
         font-size: 0.9rem;
-        line-height: 1.4;
+        line-height: 1.5;
+        border-left: 3px solid #667eea;
       }
     }
+    
+    &:empty::before {
+      content: 'Nenhuma mensagem ainda. Seja o primeiro a enviar!';
+      color: #94a3af;
+      font-style: italic;
+      display: block;
+      text-align: center;
+      padding: 2rem;
+    }
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   
   .chat-input {

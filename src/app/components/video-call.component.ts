@@ -15,6 +15,7 @@ import Swal from 'sweetalert2';
 })
 export class VideoCallComponent implements OnInit, OnDestroy {
   @ViewChild('localVideo') localVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('chatMessages') chatMessages!: ElementRef<HTMLDivElement>;
   
   identity = '';
   roomName = '';
@@ -127,6 +128,13 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     
     this.messages.push(message);
     this.newMessage = '';
+    
+    // Scroll to bottom
+    setTimeout(() => {
+      if (this.chatMessages?.nativeElement) {
+        this.chatMessages.nativeElement.scrollTop = this.chatMessages.nativeElement.scrollHeight;
+      }
+    }, 100);
   }
 
   toggleMute() {
