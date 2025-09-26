@@ -43,6 +43,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     });
 
     this.chatService.messages$.subscribe(messages => {
+      console.log('📨 Messages received in component:', messages);
       this.messages = messages;
       setTimeout(() => {
         if (this.chatMessages?.nativeElement) {
@@ -142,6 +143,9 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       text: this.newMessage.trim(),
       time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     };
+    
+    console.log('📤 Sending message from component:', message);
+    console.log('📤 Current messages array:', this.messages);
     
     // Send to chat service (will sync with other participants)
     this.chatService.sendMessage(this.roomName, message);
