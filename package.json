@@ -29,7 +29,7 @@
     "sweetalert2": "^11.10.1",
 
     "zone.js": "~0.15.0",
-    "@twilio/conversations": "^2.4.0"
+    "firebase": "^10.7.1"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "^19.2.15",
