@@ -20,7 +20,7 @@ export class ChatService {
         await this.loadTwilioConversationsSDK();
       }
       
-      this.conversationsClient = new window.Twilio.Conversations.Client(token);
+      this.conversationsClient = await window.Twilio.Conversations.Client.create(token);
       console.log('✅ Twilio Conversations initialized');
     } catch (error) {
       console.error('❌ Error initializing Conversations:', error);
@@ -43,15 +43,29 @@ export class ChatService {
   }
 
   async joinRoom(roomName: string, userName: string) {
-    if (!this.conversationsClient) return;
+    if (!this.conversationsClient) {
+      console.error('❌ Conversations client not initialized');
+      return;
+    }
     
     try {
-      // Get or create conversation
-      this.conversation = await this.conversationsClient.getConversationByUniqueName(roomName)
-        .catch(() => this.conversationsClient.createConversation({ uniqueName: roomName }));
+      // Try to get existing conversation first
+      try {
+        this.conversation = await this.conversationsClient.getConversationByUniqueName(roomName);
+      } catch {
+        // If not found, create new conversation
+        this.conversation = await this.conversationsClient.createConversation({ uniqueName: roomName });
+      }
       
-      // Join conversation
-      await this.conversation.join();
+      // Join conversation if not already joined
+      try {
+        await this.conversation.join();
+      } catch (error: any) {
+        // Ignore if already joined
+        if (!error.message?.includes('already joined')) {
+          throw error;
+        }
+      }
       
       // Listen for messages
       this.conversation.on('messageAdded', (message: any) => {
