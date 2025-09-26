@@ -1,5 +1,0 @@
-{
-  "buildCommand": "ng build",
-  "outputDirectory": "dist/meeting-portal",
-  "framework": "angular"
-}
