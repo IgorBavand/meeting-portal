@@ -19,12 +19,24 @@ export class ChatService {
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
+      debug: (str) => {
+        console.log('STOMP Debug:', str);
+      }
     });
     
     this.stompClient.onConnect = () => {
-      console.log('Connected to chat server');
+      console.log('✅ Connected to chat server');
     };
     
+    this.stompClient.onStompError = (frame) => {
+      console.error('❌ STOMP Error:', frame);
+    };
+    
+    this.stompClient.onWebSocketError = (error) => {
+      console.error('❌ WebSocket Error:', error);
+    };
+    
+    console.log('🔄 Attempting to connect to chat server...');
     this.stompClient.activate();
   }
 
