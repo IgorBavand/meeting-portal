@@ -1,75 +1,94 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { Client as ConversationsClient } from '@twilio/conversations';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ChatService {
-  private conversationsClient?: ConversationsClient;
-  private conversation?: any;
+  private ws?: WebSocket;
   private messagesSubject = new BehaviorSubject<any[]>([]);
+  private currentRoom = '';
+  private currentUser = '';
   
   messages$ = this.messagesSubject.asObservable();
 
-  async initializeChat(token: string) {
+  initializeChat(token: string) {
+    // WebSocket não precisa de token, apenas conecta
+    console.log('✅ Chat initialized');
+  }
+
+  joinRoom(roomName: string, userName: string) {
+    this.currentRoom = roomName;
+    this.currentUser = userName;
+    
     try {
-      this.conversationsClient = new ConversationsClient(token);
-      console.log('✅ Twilio Conversations initialized');
+      this.ws = new WebSocket('wss://bca4088f72a8.ngrok-free.app/ws');
+      
+      this.ws.onopen = () => {
+        console.log('✅ WebSocket connected');
+        // Send join message
+        this.sendWebSocketMessage({
+          type: 'join',
+          room: roomName,
+          user: userName
+        });
+      };
+      
+      this.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'message' && data.room === roomName) {
+            const currentMessages = this.messagesSubject.value;
+            this.messagesSubject.next([...currentMessages, data.message]);
+          }
+        } catch (error) {
+          console.error('❌ Error parsing message:', error);
+        }
+      };
+      
+      this.ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+      };
+      
+      this.ws.onclose = () => {
+        console.log('⚠️ WebSocket closed');
+      };
+      
     } catch (error) {
-      console.error('❌ Error initializing chat:', error);
+      console.error('❌ Error connecting to WebSocket:', error);
     }
   }
 
-  async joinRoom(roomName: string, userName: string) {
-    if (!this.conversationsClient) return;
-    
-    try {
-      // Get or create conversation
-      this.conversation = await this.conversationsClient.getConversationByUniqueName(roomName)
-        .catch(() => this.conversationsClient!.createConversation({ uniqueName: roomName }));
-      
-      // Join conversation
-      await this.conversation.join();
-      
-      // Listen for messages
-      this.conversation.on('messageAdded', (message: any) => {
-        const chatMessage = {
-          user: message.author,
-          text: message.body,
-          time: new Date(message.dateCreated).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        };
-        
-        const currentMessages = this.messagesSubject.value;
-        this.messagesSubject.next([...currentMessages, chatMessage]);
+  sendMessage(roomName: string, message: any) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.sendWebSocketMessage({
+        type: 'message',
+        room: roomName,
+        message: message
+      });
+    }
+  }
+
+  leaveRoom(roomName: string, userName: string) {
+    if (this.ws) {
+      this.sendWebSocketMessage({
+        type: 'leave',
+        room: roomName,
+        user: userName
       });
       
-      console.log(`✅ Joined chat room: ${roomName}`);
-    } catch (error) {
-      console.error('❌ Error joining room:', error);
+      this.ws.close();
+      this.ws = undefined;
     }
-  }
-
-  async sendMessage(roomName: string, message: any) {
-    if (!this.conversation) return;
     
-    try {
-      await this.conversation.sendMessage(message.text);
-    } catch (error) {
-      console.error('❌ Error sending message:', error);
-    }
+    this.messagesSubject.next([]);
+    this.currentRoom = '';
+    this.currentUser = '';
   }
 
-  async leaveRoom(roomName: string, userName: string) {
-    if (this.conversation) {
-      try {
-        await this.conversation.leave();
-        this.conversation = undefined;
-        this.messagesSubject.next([]);
-        console.log(`✅ Left chat room: ${roomName}`);
-      } catch (error) {
-        console.error('❌ Error leaving room:', error);
-      }
+  private sendWebSocketMessage(data: any) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
     }
   }
 }
