@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TwilioService } from '../services/twilio.service';
 import { TokenService } from '../services/token.service';
+import { ChatService } from '../services/chat.service';
 import { Room, RemoteParticipant, RemoteTrack, RemoteVideoTrack, RemoteAudioTrack } from 'twilio-video';
 import Swal from 'sweetalert2';
 
@@ -31,13 +32,23 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   
   constructor(
     private twilioService: TwilioService,
-    private tokenService: TokenService
+    private tokenService: TokenService,
+    private chatService: ChatService
   ) {}
 
   ngOnInit() {
     this.twilioService.participants$.subscribe(participants => {
       this.participants = participants;
       this.attachParticipantTracks();
+    });
+
+    this.chatService.messages$.subscribe(messages => {
+      this.messages = messages;
+      setTimeout(() => {
+        if (this.chatMessages?.nativeElement) {
+          this.chatMessages.nativeElement.scrollTop = this.chatMessages.nativeElement.scrollHeight;
+        }
+      }, 100);
     });
   }
 
@@ -73,6 +84,9 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       this.isConnected = true;
       console.log('Conectado com sucesso');
       
+      // Join chat room
+      this.chatService.joinRoom(this.roomName, this.identity);
+      
       // Anexar tracks locais
       setTimeout(() => {
         if (this.localVideo?.nativeElement) {
@@ -104,8 +118,10 @@ export class VideoCallComponent implements OnInit, OnDestroy {
 
     if (result.isConfirmed) {
       this.twilioService.leaveRoom();
+      this.chatService.leaveRoom(this.roomName, this.identity);
       this.isConnected = false;
       this.participants = [];
+      this.messages = [];
     }
   }
   
@@ -126,15 +142,12 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     };
     
+    // Send to chat service (will sync with other participants)
+    this.chatService.sendMessage(this.roomName, message);
+    
+    // Add to local messages immediately
     this.messages.push(message);
     this.newMessage = '';
-    
-    // Scroll to bottom
-    setTimeout(() => {
-      if (this.chatMessages?.nativeElement) {
-        this.chatMessages.nativeElement.scrollTop = this.chatMessages.nativeElement.scrollHeight;
-      }
-    }, 100);
   }
 
   toggleMute() {
