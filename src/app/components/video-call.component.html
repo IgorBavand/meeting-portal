@@ -84,9 +84,37 @@
         <button (click)="toggleVideo()" [class.active]="isVideoOff" [title]="isVideoOff ? 'Ligar câmera' : 'Desligar câmera'">
           <i [class]="isVideoOff ? 'video-off' : 'video'"></i>
         </button>
+        <button (click)="toggleChat()" [class.active]="showChat" title="Chat">
+          <i class="chat"></i>
+        </button>
         <button class="end" (click)="leaveCall()" title="Encerrar chamada">
           <i class="phone"></i>
         </button>
+      </div>
+      
+      <!-- Chat -->
+      <div class="chat-panel" [class.show]="showChat">
+        <div class="chat-header">
+          <h3>Chat</h3>
+          <button (click)="toggleChat()">×</button>
+        </div>
+        <div class="chat-messages">
+          <div *ngFor="let msg of messages" class="message">
+            <div class="message-header">
+              <span class="user">{{msg.user}}</span>
+              <span class="time">{{msg.time}}</span>
+            </div>
+            <div class="message-text">{{msg.text}}</div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input [(ngModel)]="newMessage" 
+                 (keyup.enter)="sendMessage()" 
+                 placeholder="Digite sua mensagem...">
+          <button (click)="sendMessage()" [disabled]="!newMessage.trim()">
+            ➤
+          </button>
+        </div>
       </div>
     </div>
   </main>

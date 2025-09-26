@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TwilioService } from '../services/twilio.service';
 import { TokenService } from '../services/token.service';
 import { Room, RemoteParticipant, RemoteTrack, RemoteVideoTrack, RemoteAudioTrack } from 'twilio-video';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-video-call',
@@ -21,6 +22,9 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   participants: RemoteParticipant[] = [];
   isMuted = false;
   isVideoOff = false;
+  showChat = false;
+  newMessage = '';
+  messages: {user: string, text: string, time: string}[] = [];
   
   predefinedRooms = ['Sala Geral', 'Reunião', 'Trabalho', 'Família', 'Amigos'];
   
@@ -85,8 +89,19 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     }
   }
 
-  leaveCall() {
-    if (confirm('Tem certeza que deseja sair da chamada?')) {
+  async leaveCall() {
+    const result = await Swal.fire({
+      title: 'Sair da chamada?',
+      text: 'Tem certeza que deseja encerrar a reunião?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sim, sair',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
       this.twilioService.leaveRoom();
       this.isConnected = false;
       this.participants = [];
@@ -95,6 +110,23 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   
   selectRoom(room: string) {
     this.roomName = room;
+  }
+
+  toggleChat() {
+    this.showChat = !this.showChat;
+  }
+
+  sendMessage() {
+    if (!this.newMessage.trim()) return;
+    
+    const message = {
+      user: this.identity,
+      text: this.newMessage.trim(),
+      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    this.messages.push(message);
+    this.newMessage = '';
   }
 
   toggleMute() {
