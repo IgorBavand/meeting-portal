@@ -270,7 +270,7 @@
           display: flex;
           gap: 0.5rem;
           
-          i {
+          .status-icon {
             width: 36px;
             height: 36px;
             border-radius: 50%;
@@ -280,19 +280,9 @@
             align-items: center;
             justify-content: center;
             
-            &.muted, &.video-off {
-              background: #ef4444;
-            }
-            
-            &::before {
+            svg {
               color: white;
-              font-size: 16px;
             }
-            
-            &.mic::before { content: '🎤'; }
-            &.muted::before { content: '🔇'; }
-            &.video::before { content: '📹'; }
-            &.video-off::before { content: '📷'; }
           }
         }
       }
@@ -345,16 +335,9 @@
         }
       }
       
-      i::before {
-        font-size: 22px;
+      svg {
+        color: white;
       }
-      
-      .mic::before { content: '🎤'; }
-      .muted::before { content: '🔇'; }
-      .video::before { content: '📹'; }
-      .video-off::before { content: '📷'; }
-      .chat::before { content: '💬'; }
-      .phone::before { content: '📞'; }
     }
   }
 }
@@ -547,8 +530,9 @@
         width: 56px;
         height: 56px;
         
-        i::before {
-          font-size: 18px;
+        svg {
+          width: 18px;
+          height: 18px;
         }
       }
     }
@@ -605,12 +589,13 @@
           font-size: 0.8rem;
         }
         
-        .status i {
+        .status .status-icon {
           width: 32px;
           height: 32px;
           
-          &::before {
-            font-size: 14px;
+          svg {
+            width: 14px;
+            height: 14px;
           }
         }
       }
@@ -624,8 +609,9 @@
         width: 52px;
         height: 52px;
         
-        i::before {
-          font-size: 16px;
+        svg {
+          width: 16px;
+          height: 16px;
         }
       }
     }
