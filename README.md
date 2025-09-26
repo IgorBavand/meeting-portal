@@ -1,59 +1,58 @@
 # MeetingPortal
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.15.
+Aplicação Angular com integração Twilio Video para chamadas entre duas pessoas ou em grupo.
 
-## Development server
+## Configuração Twilio
 
-To start a local development server, run:
+1. Crie uma conta no [Twilio Console](https://console.twilio.com/)
+2. Obtenha suas credenciais:
+   - Account SID
+   - Auth Token
+   - API Key SID
+   - API Key Secret
+3. Configure as variáveis no arquivo `server.js`
 
+## Instalação
+
+### Frontend (Angular)
+```bash
+npm install
+```
+
+### Backend (Node.js)
+```bash
+npm install --prefix . -f package-server.json
+```
+
+## Executar a aplicação
+
+### 1. Iniciar o servidor backend
+```bash
+node server.js
+```
+
+### 2. Iniciar o frontend Angular
 ```bash
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Funcionalidades
 
-## Code scaffolding
+- ✅ Chamadas de vídeo 1:1
+- ✅ Chamadas em grupo
+- ✅ Áudio e vídeo em tempo real
+- ✅ Interface simples e intuitiva
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Como usar
 
-```bash
-ng generate component component-name
-```
+1. Digite seu nome
+2. Digite o nome da sala
+3. Clique em "Entrar na Chamada"
+4. Compartilhe o nome da sala com outros participantes
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Tecnologias
 
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- Angular 19
+- Twilio Video SDK
+- Node.js/Express
+- TypeScript

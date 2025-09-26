@@ -1,0 +1,29 @@
+<div class="video-call-container">
+  <div class="controls">
+    <input [(ngModel)]="identity" placeholder="Seu nome" />
+    <div class="room-selection">
+      <input [(ngModel)]="roomName" placeholder="Nome da sala" />
+      <div class="predefined-rooms">
+        <button *ngFor="let room of predefinedRooms" 
+                (click)="selectRoom(room)" 
+                [class.selected]="roomName === room">{{room}}</button>
+      </div>
+    </div>
+    <button (click)="joinCall()" [disabled]="isConnected">Entrar na Chamada</button>
+    <button (click)="leaveCall()" [disabled]="!isConnected">Sair da Chamada</button>
+  </div>
+  
+  <div class="video-grid" *ngIf="isConnected">
+    <div class="local-video">
+      <video #localVideo autoplay muted playsinline></video>
+      <span>Você</span>
+    </div>
+    
+    <div class="remote-videos">
+      <div *ngFor="let participant of participants" class="remote-video">
+        <div [id]="'remote-' + participant.sid"></div>
+        <span>{{participant.identity}}</span>
+      </div>
+    </div>
+  </div>
+</div>
