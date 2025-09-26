@@ -17,17 +17,22 @@ export class ChatService {
   constructor() {
     // Firebase config (público para demo)
     const firebaseConfig = {
-      apiKey: "AIzaSyBvOyiA03ppVi-Qa88SUOxigXxaLD4xaMo",
-      authDomain: "meeting-portal-chat.firebaseapp.com",
-      databaseURL: "https://meeting-portal-chat-default-rtdb.firebaseio.com",
-      projectId: "meeting-portal-chat",
-      storageBucket: "meeting-portal-chat.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abcdef123456"
+      apiKey: "AIzaSyDvniOl6_WzJ2BZzP0QO_PXjg9EI5HUaRU",
+      authDomain: "meeting-portal-demo.firebaseapp.com",
+      databaseURL: "https://meeting-portal-demo-default-rtdb.firebaseio.com",
+      projectId: "meeting-portal-demo",
+      storageBucket: "meeting-portal-demo.appspot.com",
+      messagingSenderId: "987654321",
+      appId: "1:987654321:web:demo123456789"
     };
 
-    const app = initializeApp(firebaseConfig);
-    this.db = getDatabase(app);
+    try {
+      const app = initializeApp(firebaseConfig);
+      this.db = getDatabase(app);
+      console.log('🔥 Firebase initialized successfully');
+    } catch (error) {
+      console.error('❌ Firebase initialization error:', error);
+    }
   }
 
   initializeChat(token: string) {
@@ -38,15 +43,23 @@ export class ChatService {
     this.currentRoom = roomName;
     this.messagesRef = ref(this.db, `chats/${roomName}`);
     
+    console.log(`🔄 Joining room: ${roomName}`);
+    console.log(`🔄 Database ref:`, this.messagesRef);
+    
     // Listen for messages
     onValue(this.messagesRef, (snapshot) => {
+      console.log('💬 Firebase snapshot received:', snapshot.val());
       const data = snapshot.val();
       if (data) {
-        const messages = Object.values(data);
+        const messages = Object.values(data).sort((a: any, b: any) => a.timestamp - b.timestamp);
+        console.log('💬 Processed messages:', messages);
         this.messagesSubject.next(messages as any[]);
       } else {
+        console.log('💬 No messages in room');
         this.messagesSubject.next([]);
       }
+    }, (error) => {
+      console.error('❌ Firebase onValue error:', error);
     });
     
     console.log(`✅ Joined Firebase chat room: ${roomName}`);
@@ -54,11 +67,22 @@ export class ChatService {
 
   sendMessage(roomName: string, message: any) {
     if (this.messagesRef) {
-      push(this.messagesRef, {
+      const messageData = {
         ...message,
         timestamp: Date.now()
-      });
-      console.log('✅ Message sent to Firebase');
+      };
+      
+      console.log('💬 Sending message:', messageData);
+      
+      push(this.messagesRef, messageData)
+        .then(() => {
+          console.log('✅ Message sent to Firebase successfully');
+        })
+        .catch((error) => {
+          console.error('❌ Error sending message:', error);
+        });
+    } else {
+      console.error('❌ No messages ref available');
     }
   }
 
