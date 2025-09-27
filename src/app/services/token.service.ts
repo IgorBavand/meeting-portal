@@ -6,7 +6,7 @@ import { Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class TokenService {
-  private apiUrl = 'https://bca4088f72a8.ngrok-free.app/api/v1/twilio';
+  private apiUrl = 'https://02956d23e951.ngrok-free.app/api/v1/twilio';
 
   constructor(private http: HttpClient) {}
 
