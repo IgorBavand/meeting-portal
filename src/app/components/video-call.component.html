@@ -1,59 +1,101 @@
 <div class="app">
-  <!-- Header -->
-  <header class="header">
-    <div class="container">
-      <div class="logo">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="m22 8-6 4 6 4V8Z"/>
-          <rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>
+<header class="header">
+  <div class="container">
+    <div class="logo">
+      <div class="logo-icon-wrapper">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m22 8-6 4 6 4V8Z"></path>
+          <rect width="14" height="12" x="2" y="6" rx="2" ry="2"></rect>
         </svg>
-        <span>Meeting Portal</span>
       </div>
-      <div class="room-info" *ngIf="isConnected">
-        <span class="room">{{roomName}}</span>
-        <span class="count">{{participants.length + 1}} pessoas</span>
+      <div class="logo-text">
+        <span>MeetPro</span>
+        <span class="logo-subtitle">Videoconferência Profissional</span>
       </div>
     </div>
-  </header>
-
-  <!-- Main Content -->
+    <div class="header-tags">
+      <span class="tag tag-pill">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Seguro
+      </span>
+      <span class="tag tag-pill">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m22 8-6 4 6 4V8Z"></path><rect width="14" height="12" x="2" y="6" rx="2" ry="2"></rect></svg> HD Quality
+      </span>
+    </div>
+  </div>
+</header>
   <main class="main">
-    <!-- Join Form -->
-    <div class="join" *ngIf="!isConnected">
+    <section class="hero" *ngIf="!isConnected">
+      <h1>Conecte-se com confiança</h1>
+      <p class="subtitle">Plataforma de videoconferência segura e profissional para suas reuniões mais importantes</p>
+    </section>
+
+    <div class="content-grid" *ngIf="!isConnected">
       <div class="join-card">
-        <h1>Entrar na reunião</h1>
-        
+        <h2>Entrar na Reunião</h2>
+        <p class="join-subtitle">Digite suas informações para participar da videoconferência</p>
+
         <div class="field">
-          <label>Nome</label>
+          <label>Nome completo</label>
           <input [(ngModel)]="identity" placeholder="Digite seu nome" required>
         </div>
-        
+
         <div class="field">
-          <label>Sala</label>
-          <input [(ngModel)]="roomName" placeholder="Nome da sala" required>
+          <label>ID da Sala</label>
+          <input [(ngModel)]="roomName" placeholder="Digite o ID da sala" required>
         </div>
-        
-        <div class="rooms">
-          <label>Salas rápidas:</label>
-          <div class="room-grid">
-            <button *ngFor="let room of predefinedRooms" 
-                    (click)="selectRoom(room)"
-                    [class.active]="roomName === room">
-              {{room}}
-            </button>
+
+        <button class="join-btn-main" (click)="joinCall()" [disabled]="!identity || !roomName">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"></path><rect width="14" height="12" x="2" y="6" rx="2" ry="2"></rect></svg>
+          Entrar na Reunião
+        </button>
+
+        <div class="divider">
+          <span>OU ESCOLHA UMA SALA RÁPIDA</span>
+        </div>
+
+        <div class="room-grid">
+          <button *ngFor="let room of predefinedRooms" (click)="selectRoom(room)" [class.active]="roomName === room">
+            <span class="room-name">{{room}}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <aside class="features">
+        <div class="feature-card">
+          <div class="icon security">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <div class="content">
+            <h4>Segurança Avançada</h4>
+            <p>Criptografia end-to-end e salas protegidas por senha para máxima segurança</p>
           </div>
         </div>
-        
-        <button class="join-btn" (click)="joinCall()" [disabled]="!identity || !roomName">
-          Entrar na reunião
-        </button>
-      </div>
+
+        <div class="feature-card">
+          <div class="icon quality">
+             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"></path><rect width="14" height="12" x="2" y="6" rx="2" ry="2"></rect></svg>
+          </div>
+          <div class="content">
+            <h4>Qualidade HD</h4>
+            <p>Vídeo e áudio em alta definição com tecnologia de redução de ruído</p>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="icon participants">
+             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <div class="content">
+            <h4>Até 100 Participantes</h4>
+            <p>Suporte para grandes reuniões com controles avançados de moderação</p>
+          </div>
+        </div>
+      </aside>
     </div>
 
-    <!-- Video Call -->
     <div class="call" *ngIf="isConnected">
       <div class="videos">
-        <!-- Local Video -->
         <div class="video">
           <video #localVideo autoplay muted playsinline [hidden]="isVideoOff"></video>
           <div class="avatar" *ngIf="isVideoOff">
@@ -63,31 +105,34 @@
             <span>Você</span>
             <div class="status">
               <div class="status-icon">
-                <svg *ngIf="!isMuted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                  <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+                <svg *ngIf="!isMuted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
                 </svg>
-                <svg *ngIf="isMuted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="2" x2="22" y1="2" y2="22"/>
-                  <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-1"/>
-                  <path d="M15.54 8.46A3 3 0 0 0 12 5a3 3 0 0 0-3 3v6a3 3 0 0 0 .54 1.54"/>
+                <svg *ngIf="isMuted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <line x1="2" x2="22" y1="2" y2="22" />
+                  <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-1" />
+                  <path d="M15.54 8.46A3 3 0 0 0 12 5a3 3 0 0 0-3 3v6a3 3 0 0 0 .54 1.54" />
                 </svg>
               </div>
               <div class="status-icon">
-                <svg *ngIf="!isVideoOff" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="m22 8-6 4 6 4V8Z"/>
-                  <rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>
+                <svg *ngIf="!isVideoOff" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <path d="m22 8-6 4 6 4V8Z" />
+                  <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
                 </svg>
-                <svg *ngIf="isVideoOff" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="2" x2="22" y1="2" y2="22"/>
-                  <path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8"/>
+                <svg *ngIf="isVideoOff" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <line x1="2" x2="22" y1="2" y2="22" />
+                  <path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8" />
                 </svg>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Remote Videos -->
         <div class="video" *ngFor="let participant of participants; trackBy: trackParticipant">
           <div [id]="'remote-' + participant.sid" class="remote"></div>
           <div class="info">
@@ -96,49 +141,53 @@
         </div>
       </div>
 
-      <!-- Controls -->
       <div class="controls">
         <button (click)="toggleMute()" [class.active]="isMuted" [title]="isMuted ? 'Ativar microfone' : 'Silenciar'">
-          <svg *ngIf="!isMuted" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-            <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
-            <line x1="12" x2="12" y1="19" y2="23"/>
-            <line x1="8" x2="16" y1="23" y2="23"/>
+          <svg *ngIf="!isMuted" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+            <line x1="12" x2="12" y1="19" y2="23" />
+            <line x1="8" x2="16" y1="23" y2="23" />
           </svg>
-          <svg *ngIf="isMuted" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="2" x2="22" y1="2" y2="22"/>
-            <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-1"/>
-            <path d="M15.54 8.46A3 3 0 0 0 12 5a3 3 0 0 0-3 3v6a3 3 0 0 0 .54 1.54"/>
-            <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
-            <line x1="12" x2="12" y1="19" y2="23"/>
-            <line x1="8" x2="16" y1="23" y2="23"/>
+          <svg *ngIf="isMuted" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <line x1="2" x2="22" y1="2" y2="22" />
+            <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-1" />
+            <path d="M15.54 8.46A3 3 0 0 0 12 5a3 3 0 0 0-3 3v6a3 3 0 0 0 .54 1.54" />
+            <path d="M9 9v3a3 3 0 0 0 5.12 2.12" />
+            <line x1="12" x2="12" y1="19" y2="23" />
+            <line x1="8" x2="16" y1="23" y2="23" />
           </svg>
         </button>
-        <button (click)="toggleVideo()" [class.active]="isVideoOff" [title]="isVideoOff ? 'Ligar câmera' : 'Desligar câmera'">
-          <svg *ngIf="!isVideoOff" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="m22 8-6 4 6 4V8Z"/>
-            <rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>
+        <button (click)="toggleVideo()" [class.active]="isVideoOff"
+          [title]="isVideoOff ? 'Ligar câmera' : 'Desligar câmera'">
+          <svg *ngIf="!isVideoOff" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="m22 8-6 4 6 4V8Z" />
+            <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
           </svg>
-          <svg *ngIf="isVideoOff" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="2" x2="22" y1="2" y2="22"/>
-            <path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8"/>
-            <path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z"/>
+          <svg *ngIf="isVideoOff" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <line x1="2" x2="22" y1="2" y2="22" />
+            <path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8" />
+            <path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z" />
           </svg>
         </button>
         <button (click)="toggleChat()" [class.active]="showChat" title="Chat">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
           </svg>
         </button>
         <button class="end" (click)="leaveCall()" title="Encerrar chamada">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-            <line x1="1" x2="23" y1="1" y2="23"/>
+            <path
+              d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            <line x1="1" x2="23" y1="1" y2="23" />
           </svg>
         </button>
       </div>
-      
-      <!-- Chat -->
+
       <div class="chat-panel" [class.show]="showChat">
         <div class="chat-header">
           <h3>Chat</h3>
@@ -154,9 +203,7 @@
           </div>
         </div>
         <div class="chat-input">
-          <input [(ngModel)]="newMessage" 
-                 (keyup.enter)="sendMessage()" 
-                 placeholder="Digite sua mensagem...">
+          <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Digite sua mensagem...">
           <button (click)="sendMessage()" [disabled]="!newMessage.trim()">
             ➤
           </button>
