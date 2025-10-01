@@ -6,16 +6,13 @@ import { Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class TokenService {
-  private apiUrl = 'https://02956d23e951.ngrok-free.app/api/v1/twilio';
+  private apiUrl = 'https://meeting-api-production.up.railway.app/api/v1/twilio';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   getAccessToken(identity: string): Observable<string> {
-    return this.http.get(`${this.apiUrl}/token/${identity}`, { 
-      responseType: 'text',
-      headers: {
-        'ngrok-skip-browser-warning': 'true'
-      }
+    return this.http.get(`${this.apiUrl}/token/${identity}`, {
+      responseType: 'text'
     });
   }
 }
