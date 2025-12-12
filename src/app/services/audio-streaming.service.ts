@@ -20,7 +20,7 @@ export class AudioStreamingService {
   private isRecordingSubject = new BehaviorSubject<boolean>(false);
   isRecording$ = this.isRecordingSubject.asObservable();
 
-  private apiUrl = '/api/v1/transcription';
+  private apiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/transcription';
 
   // Configuration
   private readonly CHUNK_DURATION_MS = 10000; // 10 seconds

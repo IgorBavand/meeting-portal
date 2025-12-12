@@ -6,7 +6,7 @@ import { Observable, catchError, throwError } from 'rxjs';
   providedIn: 'root'
 })
 export class TokenService {
-  private apiUrl = 'meeting-api-production-e392.up.railway.app/api/v1/twilio';
+  private apiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/twilio';
 
   constructor(private http: HttpClient) { }
 
