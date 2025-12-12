@@ -37,8 +37,8 @@ export interface FullResult {
   providedIn: 'root'
 })
 export class TranscriptionService {
-  private streamingApiUrl = 'meeting-api-production-e392.up.railway.app/api/v1/transcription';
-  private roomsApiUrl = 'meeting-api-production-e392.up.railway.app/api/v1/rooms';
+  private streamingApiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/transcription';
+  private roomsApiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/rooms';
 
   constructor(private http: HttpClient) {}
 

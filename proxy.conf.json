@@ -1,6 +1,6 @@
 {
   "/api/**": {
-    "target": "meeting-api-production-e392.up.railway.app",
+    "target": "https://meeting-api-production-e392.up.railway.app",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug",
