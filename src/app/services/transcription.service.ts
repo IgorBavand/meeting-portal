@@ -37,8 +37,8 @@ export interface FullResult {
   providedIn: 'root'
 })
 export class TranscriptionService {
-  private streamingApiUrl = 'https://2aa43e97b78f.ngrok-free.app/api/v1/transcription';
-  private roomsApiUrl = 'https://2aa43e97b78f.ngrok-free.app/api/v1/rooms';
+  private streamingApiUrl = 'meeting-api-production-e392.up.railway.app/api/v1/transcription';
+  private roomsApiUrl = 'meeting-api-production-e392.up.railway.app/api/v1/rooms';
 
   constructor(private http: HttpClient) {}
 

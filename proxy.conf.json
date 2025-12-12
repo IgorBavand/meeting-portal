@@ -1,6 +1,6 @@
 {
   "/api/**": {
-    "target": "https://a200e536236e.ngrok-free.app",
+    "target": "meeting-api-production-e392.up.railway.app",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug",
