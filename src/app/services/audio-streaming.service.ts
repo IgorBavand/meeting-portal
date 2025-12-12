@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -23,7 +24,7 @@ export class AudioStreamingService {
   private statusSubject = new BehaviorSubject<string>('idle');
   status$ = this.statusSubject.asObservable();
 
-  private apiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/transcription';
+  private apiUrl = `${environment.apiUrl}/transcription`;
 
   // Configuration - 30 seconds for better context with AssemblyAI
   private readonly CHUNK_DURATION_MS = 30000;

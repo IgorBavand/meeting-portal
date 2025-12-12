@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, catchError, throwError } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TokenService {
-  private apiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/twilio';
+  private apiUrl = `${environment.apiUrl}/twilio`;
 
   constructor(private http: HttpClient) { }
 

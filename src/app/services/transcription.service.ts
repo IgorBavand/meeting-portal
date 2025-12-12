@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, interval, switchMap, takeWhile, map, catchError, throwError, of } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface TranscriptionResult {
   roomSid: string;
@@ -37,8 +38,8 @@ export interface FullResult {
   providedIn: 'root'
 })
 export class TranscriptionService {
-  private streamingApiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/transcription';
-  private roomsApiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/rooms';
+  private streamingApiUrl = `${environment.apiUrl}/transcription`;
+  private roomsApiUrl = `${environment.apiUrl}/rooms`;
 
   constructor(private http: HttpClient) {}
 
