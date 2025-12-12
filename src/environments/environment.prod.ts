@@ -1,5 +1,4 @@
 export const environment = {
   production: true,
-  // Use relative URL in production - will be proxied or same origin
-  apiUrl: '/api/v1'
+  apiUrl: 'https://meeting-api-production-e392.up.railway.app/api/v1'
 };
