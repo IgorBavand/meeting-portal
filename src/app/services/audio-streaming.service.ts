@@ -20,13 +20,19 @@ export class AudioStreamingService {
   private isRecordingSubject = new BehaviorSubject<boolean>(false);
   isRecording$ = this.isRecordingSubject.asObservable();
 
+  private statusSubject = new BehaviorSubject<string>('idle');
+  status$ = this.statusSubject.asObservable();
+
   private apiUrl = 'https://meeting-api-production-e392.up.railway.app/api/v1/transcription';
 
-  // Configuration
-  private readonly CHUNK_DURATION_MS = 10000; // 10 seconds
+  // Configuration - 30 seconds for better context with AssemblyAI
+  private readonly CHUNK_DURATION_MS = 30000;
+  private readonly MAX_RETRIES = 2;
 
   private roomSid: string = '';
   private chunkIndex: number = 0;
+  private pendingChunks: Set<number> = new Set();
+  private failedChunks: Map<number, Blob> = new Map();
 
   constructor(private http: HttpClient) {}
 
@@ -37,10 +43,13 @@ export class AudioStreamingService {
     this.roomSid = roomSid;
     this.chunkIndex = 0;
     this.transcriptionSubject.next([]);
+    this.pendingChunks.clear();
+    this.failedChunks.clear();
+    this.statusSubject.next('starting');
 
     try {
-      // Create audio context for mixing
-      this.audioContext = new AudioContext({ sampleRate: 16000 });
+      // Create audio context for mixing - use native sample rate for quality
+      this.audioContext = new AudioContext();
       this.mediaStreamDestination = this.audioContext.createMediaStreamDestination();
 
       // Get local microphone if not provided
@@ -51,7 +60,7 @@ export class AudioStreamingService {
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
-            sampleRate: 16000
+            autoGainControl: true
           }
         });
       }
@@ -61,13 +70,15 @@ export class AudioStreamingService {
       this.localSource.connect(this.mediaStreamDestination);
 
       this.isRecordingSubject.next(true);
+      this.statusSubject.next('recording');
 
-      // Start periodic recording
-      this.startPeriodicRecording();
+      // Start periodic recording with slight delay to ensure setup
+      setTimeout(() => this.startPeriodicRecording(), 500);
 
       console.log('🎤 Audio streaming started for room:', roomSid);
     } catch (error) {
       console.error('Failed to start audio recording:', error);
+      this.statusSubject.next('error');
       throw error;
     }
   }
@@ -114,12 +125,16 @@ export class AudioStreamingService {
   }
 
   private startPeriodicRecording(): void {
+    if (!this.isRecordingSubject.value) return;
+    
     // Record first chunk immediately
     this.recordChunk();
 
     // Then record periodically
     this.recordingInterval = setInterval(() => {
-      this.recordChunk();
+      if (this.isRecordingSubject.value) {
+        this.recordChunk();
+      }
     }, this.CHUNK_DURATION_MS);
   }
 
@@ -130,44 +145,57 @@ export class AudioStreamingService {
       ? 'audio/webm;codecs=opus'
       : 'audio/webm';
 
-    const recorder = new MediaRecorder(this.mediaStreamDestination.stream, { mimeType });
-    const chunks: Blob[] = [];
-    const currentIndex = this.chunkIndex++;
+    try {
+      const recorder = new MediaRecorder(this.mediaStreamDestination.stream, { 
+        mimeType,
+        audioBitsPerSecond: 128000 // 128kbps for good quality
+      });
+      const chunks: Blob[] = [];
+      const currentIndex = this.chunkIndex++;
 
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        chunks.push(event.data);
-      }
-    };
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
 
-    recorder.onstop = async () => {
-      if (chunks.length > 0 && this.isRecordingSubject.value) {
-        const audioBlob = new Blob(chunks, { type: mimeType });
-        await this.sendChunkToServer(audioBlob, currentIndex);
-      }
-    };
+      recorder.onstop = async () => {
+        if (chunks.length > 0 && this.isRecordingSubject.value) {
+          const audioBlob = new Blob(chunks, { type: mimeType });
+          // Only send if blob has meaningful size (> 1KB)
+          if (audioBlob.size > 1000) {
+            this.sendChunkToServer(audioBlob, currentIndex);
+          }
+        }
+      };
 
-    recorder.start();
-    this.mediaRecorder = recorder;
+      recorder.start();
+      this.mediaRecorder = recorder;
 
-    // Stop after chunk duration
-    setTimeout(() => {
-      if (recorder.state === 'recording') {
-        recorder.stop();
-      }
-    }, this.CHUNK_DURATION_MS - 200);
+      // Stop after chunk duration (with buffer)
+      setTimeout(() => {
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        }
+      }, this.CHUNK_DURATION_MS - 500);
+    } catch (error) {
+      console.error('Error starting chunk recording:', error);
+    }
   }
 
-  private async sendChunkToServer(audioBlob: Blob, chunkIndex: number): Promise<void> {
+  private async sendChunkToServer(audioBlob: Blob, chunkIndex: number, retryCount: number = 0): Promise<void> {
     const formData = new FormData();
     formData.append('audio', audioBlob, `chunk_${chunkIndex}.webm`);
     formData.append('roomSid', this.roomSid);
     formData.append('chunkIndex', chunkIndex.toString());
     formData.append('hasOverlap', 'false');
 
+    this.pendingChunks.add(chunkIndex);
+    this.statusSubject.next(`processing_${this.pendingChunks.size}`);
+
     try {
       const participantCount = this.remoteSources.size + 1;
-      console.log(`📤 Sending chunk ${chunkIndex} (${audioBlob.size} bytes, ${participantCount} participants)`);
+      console.log(`📤 Sending chunk ${chunkIndex} (${(audioBlob.size / 1024).toFixed(1)}KB, ${participantCount} participants)`);
 
       const response = await fetch(`${this.apiUrl}/chunk`, {
         method: 'POST',
@@ -176,21 +204,35 @@ export class AudioStreamingService {
 
       if (response.ok) {
         const data = await response.json();
-        if (data?.transcription && data.transcription.trim()) {
-          const currentTranscriptions = [...this.transcriptionSubject.value];
-          currentTranscriptions.push(data.transcription);
-          this.transcriptionSubject.next(currentTranscriptions);
-          console.log(`📝 Chunk ${data.chunkIndex} transcribed:`, data.transcription.substring(0, 50) + '...');
-        }
+        this.pendingChunks.delete(chunkIndex);
+        this.failedChunks.delete(chunkIndex);
+        
+        // AssemblyAI processes async, just log success
+        console.log(`✅ Chunk ${chunkIndex} queued successfully`);
+        this.statusSubject.next(this.pendingChunks.size > 0 ? `processing_${this.pendingChunks.size}` : 'recording');
       } else {
-        console.error('Chunk upload failed:', response.status);
+        throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
-      console.error('Failed to send chunk:', error);
+      console.error(`Failed to send chunk ${chunkIndex}:`, error);
+      this.pendingChunks.delete(chunkIndex);
+      
+      // Retry logic
+      if (retryCount < this.MAX_RETRIES) {
+        console.log(`🔄 Retrying chunk ${chunkIndex} (attempt ${retryCount + 1})`);
+        setTimeout(() => {
+          this.sendChunkToServer(audioBlob, chunkIndex, retryCount + 1);
+        }, 2000 * (retryCount + 1));
+      } else {
+        // Store for final retry
+        this.failedChunks.set(chunkIndex, audioBlob);
+        console.warn(`❌ Chunk ${chunkIndex} failed after ${this.MAX_RETRIES} retries`);
+      }
     }
   }
 
   async stopRecording(): Promise<string> {
+    this.statusSubject.next('finalizing');
     this.isRecordingSubject.next(false);
 
     if (this.recordingInterval) {
@@ -198,6 +240,7 @@ export class AudioStreamingService {
       this.recordingInterval = null;
     }
 
+    // Stop current recorder and send remaining audio
     if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
       this.mediaRecorder.stop();
     }
@@ -220,24 +263,26 @@ export class AudioStreamingService {
     this.mediaStreamDestination = null;
     this.localSource = null;
 
-    // Finalize transcription on server
-    try {
-      const response = await fetch(`${this.apiUrl}/finalize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomSid: this.roomSid })
-      });
+    // Wait a moment for any in-flight chunks to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🏁 Recording stopped, final transcription ready');
-        return data?.fullTranscription || this.getFullTranscription();
-      }
-    } catch (error) {
-      console.error('Failed to finalize transcription:', error);
+    // Retry failed chunks one more time
+    for (const [index, blob] of this.failedChunks) {
+      console.log(`🔄 Final retry for chunk ${index}`);
+      await this.sendChunkToServer(blob, index, this.MAX_RETRIES - 1);
     }
 
-    return this.getFullTranscription();
+    // Wait for pending chunks (max 10 seconds)
+    const waitStart = Date.now();
+    while (this.pendingChunks.size > 0 && Date.now() - waitStart < 10000) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    console.log('🏁 Recording stopped, finalizing transcription...');
+    this.statusSubject.next('idle');
+    
+    // Return empty - the transcription page will fetch from server
+    return '';
   }
 
   getFullTranscription(): string {
@@ -250,5 +295,13 @@ export class AudioStreamingService {
 
   getParticipantCount(): number {
     return this.remoteSources.size + 1; // +1 for local
+  }
+
+  getPendingChunksCount(): number {
+    return this.pendingChunks.size;
+  }
+
+  getRoomSid(): string {
+    return this.roomSid;
   }
 }

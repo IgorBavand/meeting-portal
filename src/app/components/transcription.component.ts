@@ -393,8 +393,33 @@ export class TranscriptionComponent implements OnInit, OnDestroy {
 
   private async loadStreamingTranscription() {
     this.loadingMessage = 'Finalizando transcrição...';
+    this.statusText = 'Processando chunks de áudio com AssemblyAI';
+    this.progressWidth = '30%';
+
+    // Poll for processing completion before finalizing
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds max wait
+
+    while (attempts < maxAttempts) {
+      try {
+        const status = await this.transcriptionService.getStreamingTranscription(this.roomSid).toPromise();
+        
+        if (status?.status?.activeProcessing === 0 || attempts > 20) {
+          break;
+        }
+        
+        this.progressWidth = `${30 + Math.min(attempts * 2, 40)}%`;
+        this.statusText = `Processando ${status?.status?.processedChunks || 0} chunks...`;
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      } catch (e) {
+        break;
+      }
+    }
+
+    this.progressWidth = '70%';
     this.statusText = 'Gerando resumo com IA';
-    this.progressWidth = '50%';
 
     try {
       const result = await this.transcriptionService.finalizeWithSummary(this.roomSid, this.roomName).toPromise();

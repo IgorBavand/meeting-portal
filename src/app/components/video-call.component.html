@@ -217,11 +217,14 @@
             <span class="recording-dot" *ngIf="isTranscribing"></span>
             📝 Transcrição ao Vivo
           </h3>
+          <span class="transcription-status" *ngIf="transcriptionStatus">
+            {{ transcriptionStatus }}
+          </span>
         </div>
         <div class="transcription-content">
           <p *ngFor="let text of liveTranscription">{{ text }}</p>
           <p *ngIf="liveTranscription.length === 0 && isTranscribing" class="waiting">
-            Aguardando áudio...
+            Gravando áudio para transcrição...
           </p>
         </div>
       </div>

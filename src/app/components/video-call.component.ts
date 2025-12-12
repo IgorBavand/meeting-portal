@@ -34,6 +34,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   // Live transcription
   liveTranscription: string[] = [];
   isTranscribing = false;
+  transcriptionStatus = '';
   
   predefinedRooms = ['Sala Geral', 'Reunião', 'Trabalho', 'Família', 'Amigos'];
   
@@ -73,6 +74,20 @@ export class VideoCallComponent implements OnInit, OnDestroy {
 
     this.audioStreamingService.isRecording$.subscribe(isRecording => {
       this.isTranscribing = isRecording;
+    });
+
+    // Subscribe to status updates
+    this.audioStreamingService.status$.subscribe(status => {
+      if (status.startsWith('processing_')) {
+        const count = status.split('_')[1];
+        this.transcriptionStatus = `Processando ${count} chunk(s)...`;
+      } else if (status === 'recording') {
+        this.transcriptionStatus = 'Gravando...';
+      } else if (status === 'finalizing') {
+        this.transcriptionStatus = 'Finalizando...';
+      } else {
+        this.transcriptionStatus = '';
+      }
     });
   }
 
