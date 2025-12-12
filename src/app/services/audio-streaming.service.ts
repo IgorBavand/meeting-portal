@@ -126,7 +126,12 @@ export class AudioStreamingService {
   }
 
   private startPeriodicRecording(): void {
-    if (!this.isRecordingSubject.value) return;
+    if (!this.isRecordingSubject.value) {
+      console.warn('⚠️ Recording was stopped before periodic recording could start');
+      return;
+    }
+    
+    console.log('🔄 Starting periodic recording with interval:', this.CHUNK_DURATION_MS, 'ms');
     
     // Record first chunk immediately
     this.recordChunk();
@@ -135,12 +140,18 @@ export class AudioStreamingService {
     this.recordingInterval = setInterval(() => {
       if (this.isRecordingSubject.value) {
         this.recordChunk();
+      } else {
+        console.log('⏹️ Recording stopped, clearing interval');
+        clearInterval(this.recordingInterval);
       }
     }, this.CHUNK_DURATION_MS);
   }
 
   private recordChunk(): void {
-    if (!this.mediaStreamDestination || !this.isRecordingSubject.value) return;
+    if (!this.mediaStreamDestination || !this.isRecordingSubject.value) {
+      console.warn('⚠️ Cannot record chunk: mediaStreamDestination or recording not active');
+      return;
+    }
 
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
@@ -154,18 +165,25 @@ export class AudioStreamingService {
       const chunks: Blob[] = [];
       const currentIndex = this.chunkIndex++;
 
+      console.log(`🎙️ Starting recording chunk ${currentIndex}`);
+
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunks.push(event.data);
+          console.log(`📊 Data available for chunk ${currentIndex}: ${event.data.size} bytes`);
         }
       };
 
       recorder.onstop = async () => {
-        if (chunks.length > 0 && this.isRecordingSubject.value) {
+        console.log(`⏹️ Recorder stopped for chunk ${currentIndex}, total parts: ${chunks.length}`);
+        if (chunks.length > 0) {
           const audioBlob = new Blob(chunks, { type: mimeType });
+          console.log(`📦 Chunk ${currentIndex} blob created: ${audioBlob.size} bytes`);
           // Only send if blob has meaningful size (> 1KB)
           if (audioBlob.size > 1000) {
             this.sendChunkToServer(audioBlob, currentIndex);
+          } else {
+            console.warn(`⚠️ Chunk ${currentIndex} too small (${audioBlob.size} bytes), skipping`);
           }
         }
       };
@@ -196,9 +214,10 @@ export class AudioStreamingService {
 
     try {
       const participantCount = this.remoteSources.size + 1;
-      console.log(`📤 Sending chunk ${chunkIndex} (${(audioBlob.size / 1024).toFixed(1)}KB, ${participantCount} participants)`);
+      const url = `${this.apiUrl}/chunk`;
+      console.log(`📤 Sending chunk ${chunkIndex} to ${url} (${(audioBlob.size / 1024).toFixed(1)}KB, ${participantCount} participants)`);
 
-      const response = await fetch(`${this.apiUrl}/chunk`, {
+      const response = await fetch(url, {
         method: 'POST',
         body: formData
       });
@@ -208,11 +227,12 @@ export class AudioStreamingService {
         this.pendingChunks.delete(chunkIndex);
         this.failedChunks.delete(chunkIndex);
         
-        // AssemblyAI processes async, just log success
-        console.log(`✅ Chunk ${chunkIndex} queued successfully`);
+        console.log(`✅ Chunk ${chunkIndex} queued successfully, server response:`, data);
         this.statusSubject.next(this.pendingChunks.size > 0 ? `processing_${this.pendingChunks.size}` : 'recording');
       } else {
-        throw new Error(`HTTP ${response.status}`);
+        const errorText = await response.text();
+        console.error(`❌ Server responded with ${response.status}: ${errorText}`);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
     } catch (error) {
       console.error(`Failed to send chunk ${chunkIndex}:`, error);

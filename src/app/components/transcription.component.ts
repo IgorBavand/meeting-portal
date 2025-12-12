@@ -393,36 +393,50 @@ export class TranscriptionComponent implements OnInit, OnDestroy {
 
   private async loadStreamingTranscription() {
     this.loadingMessage = 'Finalizando transcrição...';
-    this.statusText = 'Processando chunks de áudio com AssemblyAI';
-    this.progressWidth = '30%';
+    this.statusText = 'Verificando status do processamento...';
+    this.progressWidth = '20%';
+
+    console.log('🔍 Loading streaming transcription for room:', this.roomSid);
 
     // Poll for processing completion before finalizing
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds max wait
+    const maxAttempts = 60; // 60 seconds max wait
 
     while (attempts < maxAttempts) {
       try {
         const status = await this.transcriptionService.getStreamingTranscription(this.roomSid).toPromise();
+        console.log('📊 Transcription status:', status);
         
-        if (status?.status?.activeProcessing === 0 || attempts > 20) {
+        const processedChunks = status?.status?.processedChunks || 0;
+        const activeProcessing = status?.status?.activeProcessing || 0;
+        
+        this.statusText = `Chunks processados: ${processedChunks}, Em processamento: ${activeProcessing}`;
+        this.progressWidth = `${20 + Math.min(attempts, 50)}%`;
+        
+        // If no active processing and we have chunks, we're done waiting
+        if (activeProcessing === 0 && (processedChunks > 0 || attempts > 30)) {
+          console.log('✅ Processing complete, moving to finalization');
           break;
         }
-        
-        this.progressWidth = `${30 + Math.min(attempts * 2, 40)}%`;
-        this.statusText = `Processando ${status?.status?.processedChunks || 0} chunks...`;
         
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
       } catch (e) {
-        break;
+        console.warn('Error checking status:', e);
+        if (attempts > 10) break;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
       }
     }
 
     this.progressWidth = '70%';
-    this.statusText = 'Gerando resumo com IA';
+    this.statusText = 'Gerando resumo com IA...';
+    this.loadingMessage = 'Processando com Gemini...';
 
     try {
+      console.log('🚀 Calling finalize-with-summary');
       const result = await this.transcriptionService.finalizeWithSummary(this.roomSid, this.roomName).toPromise();
+      console.log('📝 Finalize result:', result);
       
       if (result?.fullTranscription) {
         this.transcription = {
@@ -433,6 +447,8 @@ export class TranscriptionComponent implements OnInit, OnDestroy {
           processedAt: new Date().toISOString(),
           status: 'COMPLETED'
         };
+      } else {
+        console.warn('No transcription in result');
       }
 
       if (result?.summary) {
@@ -454,31 +470,15 @@ export class TranscriptionComponent implements OnInit, OnDestroy {
 
       this.isLoading = false;
       this.progressWidth = '100%';
+      
+      // Show error if no transcription
+      if (!this.transcription?.transcription) {
+        this.error = 'Nenhuma transcrição foi gerada. Verifique se o microfone estava habilitado durante a chamada.';
+      }
     } catch (error: any) {
       console.error('Failed to load streaming transcription:', error);
-      // Fallback: try to get partial transcription
-      this.transcriptionService.getStreamingTranscription(this.roomSid).subscribe({
-        next: (result) => {
-          if (result?.transcription) {
-            this.transcription = {
-              roomSid: this.roomSid,
-              roomName: this.roomName,
-              transcription: result.transcription,
-              duration: 0,
-              processedAt: new Date().toISOString(),
-              status: 'COMPLETED'
-            };
-            this.isLoading = false;
-          } else {
-            this.error = 'Não foi possível carregar a transcrição';
-            this.isLoading = false;
-          }
-        },
-        error: (err) => {
-          this.error = 'Erro ao carregar transcrição: ' + (err?.message || 'Erro desconhecido');
-          this.isLoading = false;
-        }
-      });
+      this.error = 'Erro ao processar transcrição: ' + (error?.message || 'Erro desconhecido');
+      this.isLoading = false;
     }
   }
 

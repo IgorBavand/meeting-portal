@@ -182,11 +182,10 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       const savedRoomSid = this.roomSid;
       const savedRoomName = this.roomName;
       
-      // Stop live transcription and get final result
-      let streamingTranscription = '';
+      // Stop live transcription
       try {
-        streamingTranscription = await this.audioStreamingService.stopRecording();
-        console.log('📝 Final streaming transcription:', streamingTranscription.substring(0, 100) + '...');
+        await this.audioStreamingService.stopRecording();
+        console.log('📝 Streaming recording stopped');
       } catch (e) {
         console.warn('Error stopping streaming:', e);
       }
@@ -198,12 +197,12 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       this.messages = [];
       this.liveTranscription = [];
       
-      // Redirect to transcription page with streaming data
+      // Redirect to transcription page - always use streaming mode since we recorded chunks
       if (savedRoomSid) {
         this.router.navigate(['/transcription', savedRoomSid], {
           queryParams: { 
             roomName: savedRoomName,
-            hasStreaming: streamingTranscription ? 'true' : 'false'
+            hasStreaming: 'true'
           }
         });
       }
