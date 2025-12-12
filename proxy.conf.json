@@ -1,8 +1,9 @@
 {
   "/api/**": {
-    "target": "https://192.168.0.3:8443",
+    "target": "https://a200e536236e.ngrok-free.app",
     "secure": false,
     "changeOrigin": true,
-    "logLevel": "debug"
+    "logLevel": "debug",
+    "onProxyReq": "function(proxyReq) { proxyReq.setHeader('ngrok-skip-browser-warning', 'true'); }"
   }
 }

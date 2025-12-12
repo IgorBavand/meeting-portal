@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { connect, Room, LocalTrack, RemoteParticipant, LocalParticipant } from 'twilio-video';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Subject, Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -11,9 +11,11 @@ export class TwilioService {
   
   private roomSubject = new BehaviorSubject<Room | null>(null);
   private participantsSubject = new BehaviorSubject<RemoteParticipant[]>([]);
+  private participantDisconnectedSubject = new Subject<string>();
   
   room$ = this.roomSubject.asObservable();
   participants$ = this.participantsSubject.asObservable();
+  participantDisconnected$ = this.participantDisconnectedSubject.asObservable();
 
   async joinRoom(token: string, roomName: string): Promise<Room> {
     try {
@@ -55,6 +57,7 @@ export class TwilioService {
     });
 
     this.room.on('participantDisconnected', (participant: RemoteParticipant) => {
+      this.participantDisconnectedSubject.next(participant.sid);
       this.updateParticipants();
     });
   }

@@ -1,9 +1,11 @@
 import { Component, OnInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TwilioService } from '../services/twilio.service';
 import { TokenService } from '../services/token.service';
 import { ChatService } from '../services/chat.service';
+import { AudioStreamingService } from '../services/audio-streaming.service';
 import { Room, RemoteParticipant, RemoteTrack, RemoteVideoTrack, RemoteAudioTrack } from 'twilio-video';
 import Swal from 'sweetalert2';
 
@@ -20,6 +22,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   
   identity = '';
   roomName = '';
+  roomSid = '';
   isConnected = false;
   participants: RemoteParticipant[] = [];
   isMuted = false;
@@ -28,18 +31,29 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   newMessage = '';
   messages: {user: string, text: string, time: string}[] = [];
   
+  // Live transcription
+  liveTranscription: string[] = [];
+  isTranscribing = false;
+  
   predefinedRooms = ['Sala Geral', 'Reunião', 'Trabalho', 'Família', 'Amigos'];
   
   constructor(
     private twilioService: TwilioService,
     private tokenService: TokenService,
-    private chatService: ChatService
+    private chatService: ChatService,
+    private audioStreamingService: AudioStreamingService,
+    private router: Router
   ) {}
 
   ngOnInit() {
     this.twilioService.participants$.subscribe(participants => {
       this.participants = participants;
       this.attachParticipantTracks();
+    });
+
+    // Handle participant disconnection - remove their audio from mix
+    this.twilioService.participantDisconnected$.subscribe(participantSid => {
+      this.audioStreamingService.removeRemoteAudioTrack(participantSid);
     });
 
     this.chatService.messages$.subscribe(messages => {
@@ -51,10 +65,24 @@ export class VideoCallComponent implements OnInit, OnDestroy {
         }
       }, 100);
     });
+
+    // Subscribe to live transcription updates
+    this.audioStreamingService.transcription$.subscribe(transcriptions => {
+      this.liveTranscription = transcriptions;
+    });
+
+    this.audioStreamingService.isRecording$.subscribe(isRecording => {
+      this.isTranscribing = isRecording;
+    });
   }
 
   ngOnDestroy() {
-    this.leaveCall();
+    // Disconnect without confirmation dialog when component is destroyed
+    if (this.isConnected) {
+      this.audioStreamingService.stopRecording();
+      this.twilioService.leaveRoom();
+      this.chatService.leaveRoom(this.roomName, this.identity);
+    }
   }
 
   async joinCall() {
@@ -70,8 +98,10 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     }
     
     try {
-      console.log('Obtendo token para:', this.identity);
-      const token = await this.tokenService.getAccessToken(this.identity).toPromise();
+      console.log('Obtendo token para:', this.identity, 'na sala:', this.roomName);
+      
+      // Use the new endpoint that creates room with recording
+      const token = await this.tokenService.getAccessTokenForRoom(this.identity, this.roomName).toPromise();
       console.log('Token recebido:', token);
       console.log('Token length:', token?.length);
       
@@ -83,11 +113,20 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       console.log('Conectando na sala:', this.roomName);
       const room = await this.twilioService.joinRoom(token.trim(), this.roomName);
       this.isConnected = true;
-      console.log('Conectado com sucesso');
+      this.roomSid = room.sid;
+      console.log('Conectado com sucesso. Room SID:', this.roomSid);
       
       // Initialize and join chat room
       this.chatService.initializeChat(token.trim());
       this.chatService.joinRoom(this.roomName, this.identity);
+      
+      // Start live audio streaming for transcription
+      try {
+        await this.audioStreamingService.startRecording(this.roomSid);
+        console.log('🎤 Live transcription started');
+      } catch (streamError) {
+        console.warn('Could not start live transcription:', streamError);
+      }
       
       // Anexar tracks locais
       setTimeout(() => {
@@ -102,7 +141,13 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       
     } catch (error: any) {
       console.error('Erro ao entrar na chamada:', error);
-      alert('Erro: ' + error.message);
+      const errorMessage = error?.message || 'Erro desconhecido ao conectar';
+      Swal.fire({
+        title: 'Erro de Conexão',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
     }
   }
 
@@ -119,11 +164,34 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     });
 
     if (result.isConfirmed) {
+      const savedRoomSid = this.roomSid;
+      const savedRoomName = this.roomName;
+      
+      // Stop live transcription and get final result
+      let streamingTranscription = '';
+      try {
+        streamingTranscription = await this.audioStreamingService.stopRecording();
+        console.log('📝 Final streaming transcription:', streamingTranscription.substring(0, 100) + '...');
+      } catch (e) {
+        console.warn('Error stopping streaming:', e);
+      }
+      
       this.twilioService.leaveRoom();
       this.chatService.leaveRoom(this.roomName, this.identity);
       this.isConnected = false;
       this.participants = [];
       this.messages = [];
+      this.liveTranscription = [];
+      
+      // Redirect to transcription page with streaming data
+      if (savedRoomSid) {
+        this.router.navigate(['/transcription', savedRoomSid], {
+          queryParams: { 
+            roomName: savedRoomName,
+            hasStreaming: streamingTranscription ? 'true' : 'false'
+          }
+        });
+      }
     }
   }
   
@@ -202,15 +270,32 @@ export class VideoCallComponent implements OnInit, OnDestroy {
         participant.audioTracks.forEach(track => {
           if (track.isSubscribed && track.track) {
             track.track.attach();
+            // Add remote audio to transcription mix
+            const mediaStreamTrack = track.track.mediaStreamTrack;
+            if (mediaStreamTrack) {
+              this.audioStreamingService.addRemoteAudioTrack(participant.sid, mediaStreamTrack);
+            }
           }
         });
         
-        // Escutar novos tracks
+        // Listen for new tracks
         participant.on('trackSubscribed', track => {
           if (track.kind === 'video') {
             container.appendChild(track.attach());
           } else if (track.kind === 'audio') {
             track.attach();
+            // Add remote audio to transcription mix
+            const mediaStreamTrack = track.mediaStreamTrack;
+            if (mediaStreamTrack) {
+              this.audioStreamingService.addRemoteAudioTrack(participant.sid, mediaStreamTrack);
+            }
+          }
+        });
+
+        // Listen for unsubscribed tracks
+        participant.on('trackUnsubscribed', track => {
+          if (track.kind === 'audio') {
+            this.audioStreamingService.removeRemoteAudioTrack(participant.sid);
           }
         });
       });
