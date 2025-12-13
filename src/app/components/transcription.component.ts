@@ -370,7 +370,12 @@ export class TranscriptionComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.roomSid = this.route.snapshot.paramMap.get('roomSid') || '';
     this.roomName = this.route.snapshot.queryParamMap.get('roomName') || '';
+    const hasWebSocket = this.route.snapshot.queryParamMap.get('hasWebSocket') === 'true';
     const hasStreaming = this.route.snapshot.queryParamMap.get('hasStreaming') === 'true';
+    
+    // Try to get result from navigation state (WebSocket mode)
+    const navigation = this.router.getCurrentNavigation();
+    const state = navigation?.extras?.state as any || history.state;
     
     if (!this.roomSid) {
       this.error = 'Room ID não fornecido';
@@ -378,8 +383,11 @@ export class TranscriptionComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (hasStreaming) {
-      // Use streaming transcription (from live recording)
+    if (hasWebSocket && state?.transcriptionResult) {
+      // Use WebSocket result directly (instant)
+      this.loadWebSocketResult(state.transcriptionResult);
+    } else if (hasStreaming) {
+      // Use streaming transcription (from live recording - legacy)
       this.loadStreamingTranscription();
     } else {
       // Fallback to room-based transcription (Twilio recordings)
@@ -389,6 +397,49 @@ export class TranscriptionComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.pollSubscription?.unsubscribe();
+  }
+
+  /**
+   * Load result from WebSocket transcription (instant - no polling needed)
+   */
+  private loadWebSocketResult(result: any) {
+    console.log('🚀 Loading WebSocket transcription result:', result);
+    
+    this.progressWidth = '100%';
+    this.isLoading = false;
+
+    if (result?.fullTranscription) {
+      this.transcription = {
+        roomSid: this.roomSid,
+        roomName: this.roomName,
+        transcription: result.fullTranscription,
+        duration: 0,
+        processedAt: new Date().toISOString(),
+        status: 'COMPLETED'
+      };
+    }
+
+    if (result?.summary) {
+      this.summary = {
+        roomSid: this.roomSid,
+        roomName: this.roomName,
+        summary: result.summary.generalSummary || '',
+        generalSummary: result.summary.generalSummary || null,
+        topicsDiscussed: result.summary.topicsDiscussed || [],
+        decisionsMade: result.summary.decisionsMade || [],
+        nextSteps: result.summary.nextSteps || [],
+        participantsMentioned: result.summary.participantsMentioned || [],
+        issuesRaised: result.summary.issuesRaised || [],
+        overallSentiment: result.summary.overallSentiment || null,
+        processedAt: new Date().toISOString(),
+        status: 'COMPLETED'
+      };
+    }
+
+    // Show error if no transcription
+    if (!this.transcription?.transcription) {
+      this.error = 'Nenhuma transcrição foi gerada. Verifique se o microfone estava habilitado durante a chamada.';
+    }
   }
 
   private async loadStreamingTranscription() {

@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { TwilioService } from '../services/twilio.service';
 import { TokenService } from '../services/token.service';
 import { ChatService } from '../services/chat.service';
-import { AudioStreamingService } from '../services/audio-streaming.service';
+import { WebSocketTranscriptionService } from '../services/websocket-transcription.service';
 import { Room, RemoteParticipant, RemoteTrack, RemoteVideoTrack, RemoteAudioTrack } from 'twilio-video';
 import Swal from 'sweetalert2';
 
@@ -42,7 +42,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     private twilioService: TwilioService,
     private tokenService: TokenService,
     private chatService: ChatService,
-    private audioStreamingService: AudioStreamingService,
+    private transcriptionService: WebSocketTranscriptionService,
     private router: Router
   ) {}
 
@@ -54,7 +54,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
 
     // Handle participant disconnection - remove their audio from mix
     this.twilioService.participantDisconnected$.subscribe(participantSid => {
-      this.audioStreamingService.removeRemoteAudioTrack(participantSid);
+      this.transcriptionService.removeRemoteAudioTrack(participantSid);
     });
 
     this.chatService.messages$.subscribe(messages => {
@@ -67,26 +67,50 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       }, 100);
     });
 
-    // Subscribe to live transcription updates
-    this.audioStreamingService.transcription$.subscribe(transcriptions => {
-      this.liveTranscription = transcriptions;
+    // Subscribe to real-time transcription updates
+    this.transcriptionService.transcript$.subscribe(transcript => {
+      if (transcript) {
+        this.liveTranscription = transcript.split('. ').filter(s => s.trim());
+      }
     });
 
-    this.audioStreamingService.isRecording$.subscribe(isRecording => {
+    this.transcriptionService.partialTranscript$.subscribe(partial => {
+      // Show partial transcript as last item
+      if (partial && this.liveTranscription.length > 0) {
+        // Replace last item if it's a partial
+        const lastItem = this.liveTranscription[this.liveTranscription.length - 1];
+        if (!lastItem.endsWith('.')) {
+          this.liveTranscription[this.liveTranscription.length - 1] = partial;
+        } else {
+          this.liveTranscription.push(partial);
+        }
+      }
+    });
+
+    this.transcriptionService.isRecording$.subscribe(isRecording => {
       this.isTranscribing = isRecording;
     });
 
     // Subscribe to status updates
-    this.audioStreamingService.status$.subscribe(status => {
-      if (status.startsWith('processing_')) {
-        const count = status.split('_')[1];
-        this.transcriptionStatus = `Processando ${count} chunk(s)...`;
-      } else if (status === 'recording') {
-        this.transcriptionStatus = 'Gravando...';
-      } else if (status === 'finalizing') {
-        this.transcriptionStatus = 'Finalizando...';
-      } else {
-        this.transcriptionStatus = '';
+    this.transcriptionService.status$.subscribe(status => {
+      switch (status) {
+        case 'connecting':
+          this.transcriptionStatus = 'Conectando...';
+          break;
+        case 'recording':
+          this.transcriptionStatus = 'Transcrevendo em tempo real...';
+          break;
+        case 'finalizing':
+          this.transcriptionStatus = 'Finalizando...';
+          break;
+        case 'completed':
+          this.transcriptionStatus = 'Concluído';
+          break;
+        case 'error':
+          this.transcriptionStatus = 'Erro na transcrição';
+          break;
+        default:
+          this.transcriptionStatus = '';
       }
     });
   }
@@ -94,7 +118,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     // Disconnect without confirmation dialog when component is destroyed
     if (this.isConnected) {
-      this.audioStreamingService.stopRecording();
+      this.transcriptionService.stopRecording();
       this.twilioService.leaveRoom();
       this.chatService.leaveRoom(this.roomName, this.identity);
     }
@@ -135,12 +159,12 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       this.chatService.initializeChat(token.trim());
       this.chatService.joinRoom(this.roomName, this.identity);
       
-      // Start live audio streaming for transcription
+      // Start real-time transcription via WebSocket
       try {
-        await this.audioStreamingService.startRecording(this.roomSid);
-        console.log('🎤 Live transcription started');
+        await this.transcriptionService.startRecording(this.roomSid);
+        console.log('🎤 Real-time transcription started via WebSocket');
       } catch (streamError) {
-        console.warn('Could not start live transcription:', streamError);
+        console.warn('Could not start real-time transcription:', streamError);
       }
       
       // Anexar tracks locais
@@ -182,12 +206,13 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       const savedRoomSid = this.roomSid;
       const savedRoomName = this.roomName;
       
-      // Stop live transcription
+      // Stop real-time transcription and get result
+      let transcriptionResult = null;
       try {
-        await this.audioStreamingService.stopRecording();
-        console.log('📝 Streaming recording stopped');
+        transcriptionResult = await this.transcriptionService.stopRecording();
+        console.log('📝 Real-time transcription stopped, result:', transcriptionResult);
       } catch (e) {
-        console.warn('Error stopping streaming:', e);
+        console.warn('Error stopping transcription:', e);
       }
       
       this.twilioService.leaveRoom();
@@ -197,12 +222,15 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       this.messages = [];
       this.liveTranscription = [];
       
-      // Redirect to transcription page - always use streaming mode since we recorded chunks
+      // Navigate to transcription page with WebSocket result
       if (savedRoomSid) {
         this.router.navigate(['/transcription', savedRoomSid], {
           queryParams: { 
             roomName: savedRoomName,
-            hasStreaming: 'true'
+            hasWebSocket: 'true'
+          },
+          state: {
+            transcriptionResult: transcriptionResult
           }
         });
       }
@@ -287,7 +315,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
             // Add remote audio to transcription mix
             const mediaStreamTrack = track.track.mediaStreamTrack;
             if (mediaStreamTrack) {
-              this.audioStreamingService.addRemoteAudioTrack(participant.sid, mediaStreamTrack);
+              this.transcriptionService.addRemoteAudioTrack(participant.sid, mediaStreamTrack);
             }
           }
         });
@@ -301,7 +329,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
             // Add remote audio to transcription mix
             const mediaStreamTrack = track.mediaStreamTrack;
             if (mediaStreamTrack) {
-              this.audioStreamingService.addRemoteAudioTrack(participant.sid, mediaStreamTrack);
+              this.transcriptionService.addRemoteAudioTrack(participant.sid, mediaStreamTrack);
             }
           }
         });
@@ -309,7 +337,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
         // Listen for unsubscribed tracks
         participant.on('trackUnsubscribed', track => {
           if (track.kind === 'audio') {
-            this.audioStreamingService.removeRemoteAudioTrack(participant.sid);
+            this.transcriptionService.removeRemoteAudioTrack(participant.sid);
           }
         });
       });
