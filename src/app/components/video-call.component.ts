@@ -159,10 +159,10 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       this.chatService.initializeChat(token.trim());
       this.chatService.joinRoom(this.roomName, this.identity);
       
-      // Start real-time transcription via WebSocket
+      // Start real-time transcription via WebSocket with room name for better summary
       try {
-        await this.transcriptionService.startRecording(this.roomSid);
-        console.log('🎤 Real-time transcription started via WebSocket');
+        await this.transcriptionService.startRecording(this.roomSid, this.roomName);
+        console.log('🎤 Real-time streaming transcription started via WebSocket');
       } catch (streamError) {
         console.warn('Could not start real-time transcription:', streamError);
       }

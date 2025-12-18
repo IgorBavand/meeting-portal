@@ -3,15 +3,50 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface TranscriptMessage {
-  type: 'transcript' | 'started' | 'completed' | 'error';
+  type: 'connected' | 'started' | 'transcript' | 'completed' | 'error' | 'session_info' | 'pong';
   text?: string;
   isFinal?: boolean;
+  confidence?: number;
+  words?: WordInfo[];
   fullTranscription?: string;
   summary?: any;
   error?: string;
   roomSid?: string;
+  stats?: SessionStats;
+  assemblySessionId?: string;
 }
 
+export interface WordInfo {
+  text: string;
+  start: number;
+  end: number;
+  confidence: number;
+}
+
+export interface SessionStats {
+  totalChunks: number;
+  totalBytes: number;
+  finalTranscripts: number;
+  durationMs: number;
+  avgBytesPerSecond: number;
+}
+
+/**
+ * Optimized WebSocket Transcription Service for AssemblyAI Real-time Streaming
+ * 
+ * Features:
+ * - Direct WebSocket connection to backend which bridges to AssemblyAI
+ * - Audio buffering for optimal 250ms chunks
+ * - Automatic reconnection on connection loss
+ * - Mixed audio from all participants (local + remote)
+ * - Word-level timestamps and confidence scores
+ * 
+ * Audio Format:
+ * - Sample Rate: 16000 Hz
+ * - Bit Depth: 16-bit signed PCM
+ * - Channels: Mono
+ * - Encoding: Base64 for WebSocket transmission
+ */
 @Injectable({
   providedIn: 'root'
 })
@@ -24,55 +59,76 @@ export class WebSocketTranscriptionService implements OnDestroy {
   private scriptProcessor: ScriptProcessorNode | null = null;
   private localStream: MediaStream | null = null;
 
+  // Audio buffering for optimal chunk sizes
+  private audioBuffer: Int16Array[] = [];
+  private readonly BUFFER_SIZE = 4096; // Samples per callback
+  private readonly TARGET_CHUNK_SAMPLES = 4000; // 250ms at 16kHz
+  private bufferedSamples = 0;
+
   // Observables
   private transcriptSubject = new BehaviorSubject<string>('');
   private partialTranscriptSubject = new BehaviorSubject<string>('');
   private statusSubject = new BehaviorSubject<string>('idle');
   private isRecordingSubject = new BehaviorSubject<boolean>(false);
   private completedSubject = new Subject<TranscriptMessage>();
+  private confidenceSubject = new BehaviorSubject<number>(0);
 
   transcript$ = this.transcriptSubject.asObservable();
   partialTranscript$ = this.partialTranscriptSubject.asObservable();
   status$ = this.statusSubject.asObservable();
   isRecording$ = this.isRecordingSubject.asObservable();
   completed$ = this.completedSubject.asObservable();
+  confidence$ = this.confidenceSubject.asObservable();
 
   private roomSid: string = '';
+  private roomName: string = '';
   private fullTranscript: string[] = [];
 
   private readonly SAMPLE_RATE = 16000; // AssemblyAI requires 16kHz
+  private reconnectAttempts = 0;
+  private readonly MAX_RECONNECT_ATTEMPTS = 3;
+  private pingInterval: any = null;
 
   ngOnDestroy(): void {
     this.stopRecording();
   }
 
   /**
-   * Start real-time transcription via WebSocket
+   * Start real-time transcription via WebSocket with AssemblyAI streaming
    */
-  async startRecording(roomSid: string, localStream?: MediaStream): Promise<void> {
+  async startRecording(roomSid: string, roomName?: string, localStream?: MediaStream): Promise<void> {
     this.roomSid = roomSid;
+    this.roomName = roomName || '';
     this.fullTranscript = [];
+    this.audioBuffer = [];
+    this.bufferedSamples = 0;
+    this.reconnectAttempts = 0;
     this.transcriptSubject.next('');
     this.partialTranscriptSubject.next('');
+    this.confidenceSubject.next(0);
     this.statusSubject.next('connecting');
 
     try {
-      // Connect WebSocket
+      // Connect WebSocket first
       await this.connectWebSocket();
 
-      // Setup audio capture
+      // Setup audio capture with mixing
       await this.setupAudioCapture(localStream);
 
-      // Send start message
+      // Send start message with room info
       this.sendMessage({
         type: 'start',
-        roomSid: roomSid
+        roomSid: roomSid,
+        roomName: roomName || null
       });
 
       this.isRecordingSubject.next(true);
       this.statusSubject.next('recording');
 
-      console.log('🎤 Real-time transcription started for room:', roomSid);
+      // Start ping interval to keep connection alive
+      this.startPingInterval();
+
+      console.log('🎤 Real-time streaming transcription started for room:', roomSid);
     } catch (error) {
       console.error('Failed to start real-time transcription:', error);
       this.statusSubject.next('error');
@@ -82,7 +138,6 @@ export class WebSocketTranscriptionService implements OnDestroy {
 
   private connectWebSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Build WebSocket URL
       const apiUrl = environment.apiUrl;
       let wsUrl: string;
 
@@ -91,7 +146,6 @@ export class WebSocketTranscriptionService implements OnDestroy {
       } else if (apiUrl.startsWith('http://')) {
         wsUrl = apiUrl.replace('http://', 'ws://').replace('/api/v1', '') + '/ws/transcription';
       } else {
-        // Relative URL - use current host
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         wsUrl = `${protocol}//${window.location.host}/ws/transcription`;
       }
@@ -102,6 +156,7 @@ export class WebSocketTranscriptionService implements OnDestroy {
 
       this.websocket.onopen = () => {
         console.log('✅ WebSocket connected');
+        this.reconnectAttempts = 0;
         resolve();
       };
 
@@ -112,8 +167,15 @@ export class WebSocketTranscriptionService implements OnDestroy {
 
       this.websocket.onclose = (event) => {
         console.log('🔌 WebSocket closed:', event.code, event.reason);
-        this.isRecordingSubject.next(false);
-        this.statusSubject.next('idle');
+        this.stopPingInterval();
+        
+        // Try to reconnect if recording was active
+        if (this.isRecordingSubject.value && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+          this.attemptReconnect();
+        } else {
+          this.isRecordingSubject.next(false);
+          this.statusSubject.next('idle');
+        }
       };
 
       this.websocket.onmessage = (event) => {
@@ -129,11 +191,42 @@ export class WebSocketTranscriptionService implements OnDestroy {
     });
   }
 
+  private async attemptReconnect(): Promise<void> {
+    this.reconnectAttempts++;
+    console.log(`🔄 Attempting reconnect (${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS})...`);
+    this.statusSubject.next('reconnecting');
+
+    await new Promise(resolve => setTimeout(resolve, 1000 * this.reconnectAttempts));
+
+    try {
+      await this.connectWebSocket();
+      this.sendMessage({
+        type: 'start',
+        roomSid: this.roomSid,
+        roomName: this.roomName || null
+      });
+      this.statusSubject.next('recording');
+    } catch (e) {
+      console.error('Reconnect failed:', e);
+      if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+        this.statusSubject.next('error');
+      }
+    }
+  }
+
   private handleMessage(message: TranscriptMessage): void {
     switch (message.type) {
+      case 'connected':
+        console.log('🔗 Server ready for transcription');
+        break;
+
       case 'started':
         console.log('🎙️ Transcription session started');
         this.statusSubject.next('recording');
+        break;
+
+      case 'session_info':
+        console.log('📋 AssemblyAI session:', message.assemblySessionId);
         break;
 
       case 'transcript':
@@ -142,7 +235,10 @@ export class WebSocketTranscriptionService implements OnDestroy {
           this.fullTranscript.push(message.text);
           this.transcriptSubject.next(this.fullTranscript.join(' '));
           this.partialTranscriptSubject.next('');
-          console.log('📝 Final:', message.text);
+          if (message.confidence) {
+            this.confidenceSubject.next(message.confidence);
+          }
+          console.log('📝 Final:', message.text.substring(0, 50) + '...');
         } else if (message.text) {
           // Partial transcript - show as preview
           this.partialTranscriptSubject.next(message.text);
@@ -159,11 +255,15 @@ export class WebSocketTranscriptionService implements OnDestroy {
         console.error('❌ Transcription error:', message.error);
         this.statusSubject.next('error');
         break;
+
+      case 'pong':
+        // Keep-alive response
+        break;
     }
   }
 
   private async setupAudioCapture(localStream?: MediaStream): Promise<void> {
-    // Create audio context with target sample rate
+    // Create audio context at target sample rate for quality
     this.audioContext = new AudioContext({ sampleRate: this.SAMPLE_RATE });
     this.mediaStreamDestination = this.audioContext.createMediaStreamDestination();
 
@@ -181,13 +281,13 @@ export class WebSocketTranscriptionService implements OnDestroy {
       });
     }
 
-    // Connect local audio
+    // Connect local audio to destination for mixing
     this.localSource = this.audioContext.createMediaStreamSource(this.localStream);
     this.localSource.connect(this.mediaStreamDestination);
 
-    // Create script processor to capture audio data
-    // Using 4096 buffer size for balance between latency and efficiency
-    this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+    // Create script processor to capture mixed audio
+    // Using 4096 buffer for balance between latency and efficiency
+    this.scriptProcessor = this.audioContext.createScriptProcessor(this.BUFFER_SIZE, 1, 1);
 
     this.scriptProcessor.onaudioprocess = (event) => {
       if (!this.isRecordingSubject.value || !this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
@@ -195,19 +295,21 @@ export class WebSocketTranscriptionService implements OnDestroy {
       }
 
       const inputData = event.inputBuffer.getChannelData(0);
-
+      
       // Convert Float32 to Int16 PCM
       const pcmData = this.float32ToInt16(inputData);
+      
+      // Buffer audio for optimal chunk sizes
+      this.audioBuffer.push(pcmData);
+      this.bufferedSamples += pcmData.length;
 
-      // Convert to base64 and send
-      const base64Audio = this.arrayBufferToBase64(pcmData.buffer);
-      this.sendMessage({
-        type: 'audio',
-        audio: base64Audio
-      });
+      // Send when we have enough samples (250ms = 4000 samples at 16kHz)
+      if (this.bufferedSamples >= this.TARGET_CHUNK_SAMPLES) {
+        this.flushAudioBuffer();
+      }
     };
 
-    // Connect the audio graph
+    // Connect the mixed audio to processor
     this.mediaStreamDestination.stream.getAudioTracks().forEach(track => {
       const source = this.audioContext!.createMediaStreamSource(new MediaStream([track]));
       source.connect(this.scriptProcessor!);
@@ -216,8 +318,32 @@ export class WebSocketTranscriptionService implements OnDestroy {
     this.scriptProcessor.connect(this.audioContext.destination);
   }
 
+  private flushAudioBuffer(): void {
+    if (this.audioBuffer.length === 0) return;
+
+    // Combine all buffered chunks
+    const totalLength = this.audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
+    const combined = new Int16Array(totalLength);
+    let offset = 0;
+    for (const chunk of this.audioBuffer) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Convert to base64 and send
+    const base64Audio = this.arrayBufferToBase64(combined.buffer);
+    this.sendMessage({
+      type: 'audio',
+      audio: base64Audio
+    });
+
+    // Clear buffer
+    this.audioBuffer = [];
+    this.bufferedSamples = 0;
+  }
+
   /**
-   * Add a remote participant's audio track
+   * Add a remote participant's audio track to the mix
    */
   addRemoteAudioTrack(participantId: string, audioTrack: MediaStreamTrack): void {
     if (!this.audioContext || !this.mediaStreamDestination) {
@@ -240,7 +366,7 @@ export class WebSocketTranscriptionService implements OnDestroy {
   }
 
   /**
-   * Remove a remote participant's audio
+   * Remove a remote participant's audio from the mix
    */
   removeRemoteAudioTrack(participantId: string): void {
     const source = this.remoteSources.get(participantId);
@@ -254,12 +380,16 @@ export class WebSocketTranscriptionService implements OnDestroy {
   }
 
   /**
-   * Stop recording and get final transcription
+   * Stop recording and get final transcription with summary
    */
   async stopRecording(): Promise<TranscriptMessage | null> {
     return new Promise((resolve) => {
       this.statusSubject.next('finalizing');
       this.isRecordingSubject.next(false);
+      this.stopPingInterval();
+
+      // Flush any remaining audio
+      this.flushAudioBuffer();
 
       // Stop audio processing
       if (this.scriptProcessor) {
@@ -299,7 +429,7 @@ export class WebSocketTranscriptionService implements OnDestroy {
         resolve(result);
       });
 
-      // Send stop message
+      // Send stop message to trigger summary generation
       if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
         this.sendMessage({ type: 'stop' });
       } else {
@@ -308,6 +438,22 @@ export class WebSocketTranscriptionService implements OnDestroy {
         resolve(null);
       }
     });
+  }
+
+  private startPingInterval(): void {
+    this.stopPingInterval();
+    this.pingInterval = setInterval(() => {
+      if (this.websocket?.readyState === WebSocket.OPEN) {
+        this.sendMessage({ type: 'ping' });
+      }
+    }, 30000); // Ping every 30 seconds
+  }
+
+  private stopPingInterval(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
   }
 
   private closeWebSocket(): void {
